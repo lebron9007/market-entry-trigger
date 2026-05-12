@@ -1,0 +1,23 @@
+# Claude Code session data
+.claude/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Node (for future Vercel functions)
+node_modules/
+.next/
+.vercel/
+
+# Local env / secret overrides
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log

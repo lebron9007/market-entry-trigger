@@ -1,0 +1,12 @@
+{
+  "_comment": "Update quarterly after FOMC Summary of Economic Projections (Mar/Jun/Sep/Dec). Values are median target-range midpoints from the dot plot. Source: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm",
+  "meeting": "2026-03",
+  "current_rate": 3.625,
+  "projections": {
+    "2026": 3.625,
+    "2027": 3.125,
+    "2028": 3.125,
+    "long_run": 3.000
+  },
+  "direction": "flat-then-down"
+}

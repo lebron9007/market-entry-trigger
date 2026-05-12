@@ -1,0 +1,13 @@
+{
+  "_comment": "Fed Funds target range. Used as fallback if fredgraph.csv is CORS-blocked. Update after each FOMC meeting (~8x/year). Source: https://www.federalreserve.gov/monetarypolicy/openmarket.htm — append a new entry whenever the FOMC changes the target range.",
+  "asOf": "2026-03-18",
+  "history": [
+    { "date": "2024-09-18", "lower": 4.75, "upper": 5.00 },
+    { "date": "2024-11-07", "lower": 4.50, "upper": 4.75 },
+    { "date": "2024-12-18", "lower": 4.25, "upper": 4.50 },
+    { "date": "2025-06-18", "lower": 4.00, "upper": 4.25 },
+    { "date": "2025-09-17", "lower": 3.75, "upper": 4.00 },
+    { "date": "2025-12-17", "lower": 3.50, "upper": 3.75 },
+    { "date": "2026-03-18", "lower": 3.50, "upper": 3.75 }
+  ]
+}
