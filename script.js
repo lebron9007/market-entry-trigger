@@ -168,22 +168,24 @@ const MOCK = {
   },
   leadingSector: {
     topTicker: "SMH", topName: "Semiconductors",
+    absReturn3M: 17.4,
     relStrength3M: 12.4,
-    runnerUp: { ticker: "XLK", name: "Technology", relStrength3M: 7.1 },
+    spy3M: 5.0,
+    runnerUp: { ticker: "XLK", name: "Technology", absReturn3M: 12.1, relStrength3M: 7.1 },
     decisive: true,
     allRanked: [
-      { ticker: "SMH",  name: "Semiconductors",   relStrength3M: 12.4 },
-      { ticker: "XLK",  name: "Technology",       relStrength3M:  7.1 },
-      { ticker: "XLC",  name: "Communications",   relStrength3M:  4.2 },
-      { ticker: "XLF",  name: "Financials",       relStrength3M:  2.8 },
-      { ticker: "XLI",  name: "Industrials",      relStrength3M:  1.5 },
-      { ticker: "XLY",  name: "Consumer Disc.",   relStrength3M:  0.6 },
-      { ticker: "XLV",  name: "Health Care",      relStrength3M: -0.7 },
-      { ticker: "XLB",  name: "Materials",        relStrength3M: -1.4 },
-      { ticker: "XLP",  name: "Consumer Stap.",   relStrength3M: -2.6 },
-      { ticker: "XLRE", name: "Real Estate",      relStrength3M: -3.2 },
-      { ticker: "XLU",  name: "Utilities",        relStrength3M: -3.8 },
-      { ticker: "XLE",  name: "Energy",           relStrength3M: -5.1 }
+      { ticker: "SMH",  name: "Semiconductors", absReturn3M: 17.4, relStrength3M: 12.4 },
+      { ticker: "XLK",  name: "Technology",     absReturn3M: 12.1, relStrength3M:  7.1 },
+      { ticker: "XLC",  name: "Communications", absReturn3M:  9.2, relStrength3M:  4.2 },
+      { ticker: "XLF",  name: "Financials",     absReturn3M:  7.8, relStrength3M:  2.8 },
+      { ticker: "XLI",  name: "Industrials",    absReturn3M:  6.5, relStrength3M:  1.5 },
+      { ticker: "XLY",  name: "Consumer Disc.", absReturn3M:  5.6, relStrength3M:  0.6 },
+      { ticker: "XLV",  name: "Health Care",    absReturn3M:  4.3, relStrength3M: -0.7 },
+      { ticker: "XLB",  name: "Materials",      absReturn3M:  3.6, relStrength3M: -1.4 },
+      { ticker: "XLP",  name: "Consumer Stap.", absReturn3M:  2.4, relStrength3M: -2.6 },
+      { ticker: "XLRE", name: "Real Estate",    absReturn3M:  1.8, relStrength3M: -3.2 },
+      { ticker: "XLU",  name: "Utilities",      absReturn3M:  1.2, relStrength3M: -3.8 },
+      { ticker: "XLE",  name: "Energy",         absReturn3M: -0.1, relStrength3M: -5.1 }
     ],
     source: "mock"
   },
@@ -783,16 +785,20 @@ function sparklineSVG(prices, color, width = 200, height = 28) {
 function renderSectorsDetail(d, evalResult) {
   const rows = d.allRanked.map((s, i) => {
     const cls = i === 0 ? "highlight" : "";
-    const sign = s.relStrength3M >= 0 ? "+" : "";
+    const absSign = s.absReturn3M  >= 0 ? "+" : "";
+    const relSign = s.relStrength3M >= 0 ? "+" : "";
+    const absClass = s.absReturn3M  >= 0 ? "beat" : "miss";
+    const relClass = s.relStrength3M >= 0 ? "beat" : "miss";
     return `
       <tr class="sector-row ${cls}" data-ticker="${s.ticker}">
         <td class="num">${i + 1}</td>
         <td><span class="expander">▶</span> <strong>${s.ticker}</strong></td>
         <td>${s.name}</td>
-        <td class="num">${sign}${s.relStrength3M.toFixed(2)}%</td>
+        <td class="num ${absClass}">${absSign}${s.absReturn3M.toFixed(2)}%</td>
+        <td class="num ${relClass}">${relSign}${s.relStrength3M.toFixed(2)}%</td>
       </tr>
       <tr class="sector-detail-row" data-detail="${s.ticker}" hidden>
-        <td colspan="4"><div class="constituents-wrap" data-content="${s.ticker}"></div></td>
+        <td colspan="5"><div class="constituents-wrap" data-content="${s.ticker}"></div></td>
       </tr>`;
   }).join("");
 
@@ -806,9 +812,9 @@ function renderSectorsDetail(d, evalResult) {
     </div>
     <div class="stat-row">
       <div class="stat"><div class="stat-label">Leader</div><div class="stat-value">${d.topTicker}</div><div class="stat-sub">${d.topName}</div></div>
-      <div class="stat"><div class="stat-label">3M vs SPY</div><div class="stat-value">+${d.relStrength3M.toFixed(1)}%</div></div>
-      <div class="stat"><div class="stat-label">Runner-up</div><div class="stat-value">${d.runnerUp.ticker}</div><div class="stat-sub">+${d.runnerUp.relStrength3M.toFixed(1)}% vs SPY</div></div>
-      <div class="stat"><div class="stat-label">Lead margin</div><div class="stat-value">${(d.relStrength3M - d.runnerUp.relStrength3M).toFixed(1)}pp</div><div class="stat-sub">${d.decisive ? "decisive" : "not decisive"}</div></div>
+      <div class="stat"><div class="stat-label">3M Return</div><div class="stat-value">${d.absReturn3M >= 0 ? "+" : ""}${d.absReturn3M.toFixed(1)}%</div><div class="stat-sub">absolute</div></div>
+      <div class="stat"><div class="stat-label">vs SPY</div><div class="stat-value">${d.relStrength3M >= 0 ? "+" : ""}${d.relStrength3M.toFixed(1)}pp</div><div class="stat-sub">relative strength</div></div>
+      <div class="stat"><div class="stat-label">Lead margin</div><div class="stat-value">${(d.relStrength3M - d.runnerUp.relStrength3M).toFixed(1)}pp</div><div class="stat-sub">${d.decisive ? "decisive" : "not decisive"} · vs ${d.runnerUp.ticker}</div></div>
     </div>
     <div class="detail-section">
       <h3>All sector ETFs ranked — click to expand</h3>
@@ -817,9 +823,18 @@ function renderSectorsDetail(d, evalResult) {
           <col class="col-rank">
           <col class="col-ticker">
           <col class="col-name">
-          <col class="col-pct">
+          <col class="col-abs">
+          <col class="col-rel">
         </colgroup>
-        <thead><tr><th class="num">#</th><th>Ticker</th><th>Sector</th><th class="num">3M vs SPY</th></tr></thead>
+        <thead>
+          <tr>
+            <th class="num">#</th>
+            <th>Ticker</th>
+            <th>Sector</th>
+            <th class="num has-tooltip" title="Absolute price return of the sector ETF over the last 3 months (Yahoo Finance raw closes).">3M Return</th>
+            <th class="num has-tooltip" title="ETF 3M return minus SPY 3M return — measures relative outperformance. Sectors with the highest vs-SPY % are leading the market. Trigger needs the leader ≥3pp above the runner-up.">vs SPY</th>
+          </tr>
+        </thead>
         <tbody>${rows}</tbody>
       </table>
     </div>
@@ -1326,13 +1341,21 @@ async function fetchLeading_live() {
   const spy = closes["SPY"];
   const allRanked = Object.keys(SECTOR_ETFS)
     .filter(t => closes[t] != null)
-    .map(t => ({ ticker: t, name: SECTOR_ETFS[t], relStrength3M: closes[t] - spy }))
+    .map(t => ({
+      ticker: t,
+      name: SECTOR_ETFS[t],
+      absReturn3M: closes[t],
+      relStrength3M: closes[t] - spy
+    }))
     .sort((a, b) => b.relStrength3M - a.relStrength3M);
   if (allRanked.length < 2) throw new Error("Not enough sector data");
   const top = allRanked[0], second = allRanked[1];
   return {
-    topTicker: top.ticker, topName: top.name, relStrength3M: top.relStrength3M,
-    runnerUp: { ticker: second.ticker, name: second.name, relStrength3M: second.relStrength3M },
+    topTicker: top.ticker, topName: top.name,
+    absReturn3M: top.absReturn3M,
+    relStrength3M: top.relStrength3M,
+    spy3M: spy,
+    runnerUp: { ticker: second.ticker, name: second.name, absReturn3M: second.absReturn3M, relStrength3M: second.relStrength3M },
     decisive: (top.relStrength3M - second.relStrength3M) >= 3,
     allRanked,
     source: "live"

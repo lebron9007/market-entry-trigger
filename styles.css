@@ -377,7 +377,19 @@ table.data tr.sector-detail-row td {
 table.sectors-table { table-layout: fixed; }
 .col-rank   { width: 56px; }
 .col-ticker { width: 120px; }
-.col-pct    { width: 130px; }
+.col-abs    { width: 110px; }
+.col-rel    { width: 110px; }
+.col-pct    { width: 130px; }  /* legacy alias if referenced elsewhere */
+
+/* Tooltip indicator on table column headers */
+table.data th.has-tooltip {
+  cursor: help;
+  text-decoration: underline dotted rgba(139, 148, 158, 0.55);
+  text-underline-offset: 3px;
+}
+table.data th.has-tooltip:hover {
+  color: var(--text);
+}
 
 /* Movers detail table — standalone Bloomberg-style layout, lives inside expanded row */
 .movers-wrapper {
