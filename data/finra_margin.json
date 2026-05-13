@@ -1,5 +1,5 @@
 {
-  "_comment": "Real values from FINRA's monthly Margin Statistics (Debit Balances in Customers' Securities Margin Accounts). Source: https://www.finra.org/rules-guidance/key-topics/margin-accounts/margin-statistics — FINRA publishes around the 3rd week of the month for the prior month. Source values are in $ millions; converted to $ billions here for display. Append a new entry each month.",
+  "_comment": "Auto-updated by /api/finra-margin (FINRA via r.jina.ai). Manual edits are welcome and serve as fallback if the proxy fails — they'll be overwritten the next time the proxy successfully scrapes fresh data. Source: https://www.finra.org/rules-guidance/key-topics/margin-accounts/margin-statistics",
   "unitsLabel": "$B",
   "history": [
     { "month": "2025-03", "value": 880.3 },
