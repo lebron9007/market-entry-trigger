@@ -421,25 +421,16 @@ function forwardReturn12M(spyRows, alignIso) {
   return { start: startNearest.close, end: endNearest.close, pct, status: "ok" };
 }
 
-function renderAlignmentTable(data, spyRows) {
+function renderAlignmentTable(data /* spyRows */) {
   const wrap = document.getElementById("history-table");
   if (!wrap) return;
 
-  const rows = data.map(p => {
-    const fr = forwardReturn12M(spyRows, p.date);
-    return { ...p, fr };
-  });
+  // Notable alignments only — 4/5 and 5/5. These are the moments the
+  // framework actually flagged; lower scores are scanned visually on the
+  // chart above.
+  const notable = data.filter(p => p.score >= 4);
 
-  // Compute the validation summary across alignments scored 4+/5.
-  const notable = rows.filter(r => r.score >= 4 && r.fr.status === "ok");
-  const positives = notable.filter(r => r.fr.pct > 0).length;
-  const summary = notable.length
-    ? `Of <strong>${notable.length}</strong> historical alignments at 4+/5 with a full 12-month forward window, ` +
-      `<strong>${Math.round((positives / notable.length) * 100)}%</strong> produced positive returns ` +
-      `(avg <strong>${(notable.reduce((a, r) => a + r.fr.pct, 0) / notable.length).toFixed(1)}%</strong>).`
-    : "Not enough completed 12-month windows yet to compute summary statistics.";
-
-  const tbody = rows.map(r => {
+  const tbody = notable.map(r => {
     const scoreClass = `score-cell score-${r.score}`;
     return `
       <tr>
@@ -449,8 +440,7 @@ function renderAlignmentTable(data, spyRows) {
       </tr>`;
   }).join("");
 
-  wrap.innerHTML = `
-    <p class="history-summary">${summary}</p>
+  wrap.innerHTML = notable.length === 0 ? "" : `
     <div class="history-table-scroll">
       <table class="data history-table">
         <thead>
@@ -533,7 +523,7 @@ async function renderHistory(points, currentDate, currentScore) {
     };
   }).filter(Boolean);
 
-  renderAlignmentTable(data, spyClipped);
+  renderAlignmentTable(data);
 
   new Chart(canvas, {
     data: {
