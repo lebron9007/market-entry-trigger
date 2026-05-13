@@ -1,0 +1,10 @@
+{
+  "name": "market-entry-trigger",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Five-condition market entry trigger dashboard",
+  "engines": {
+    "node": ">=18"
+  }
+}

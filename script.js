@@ -699,13 +699,30 @@ async function fetchStooqHistory(ticker) {
   return { ticker, ytd, oneY, prices, source: "stooq" };
 }
 
-async function fetchHistoryWithFallback(ticker) {
-  try {
-    return await fetchYahooHistory(ticker);
-  } catch (e) {
-    console.warn(`[${ticker}] Yahoo failed (${e.message || e}) — falling back to Stooq`);
-    return await fetchStooqHistory(ticker);
+// Server-side Yahoo proxy (Vercel serverless function). No CORS, split/dividend
+// adjusted, edge-cached. This is the most accurate path when the dashboard is
+// deployed; in local dev it falls through immediately.
+async function fetchProxyHistory(ticker) {
+  // Skip the proxy on local dev — Vercel functions don't run under `python -m http.server`.
+  const host = (typeof location !== "undefined" ? location.hostname : "") || "";
+  if (host === "localhost" || host === "127.0.0.1" || host === "") {
+    throw new Error("proxy unavailable in local dev");
   }
+  const resp = await fetch(`/api/quotes?ticker=${encodeURIComponent(ticker)}&range=1y`);
+  if (!resp.ok) throw new Error(`Proxy ${ticker} HTTP ${resp.status}`);
+  const json = await resp.json();
+  if (!json.rows || json.rows.length < 2) throw new Error(`Proxy ${ticker} short data`);
+  const { ytd, oneY, prices } = _computeReturns(json.rows);
+  return { ticker, ytd, oneY, prices, source: "proxy" };
+}
+
+async function fetchHistoryWithFallback(ticker) {
+  // Priority: serverless proxy (most accurate) → Yahoo direct (CORS hit-or-miss) → Stooq.
+  try { return await fetchProxyHistory(ticker); }
+  catch (e) { console.warn(`[${ticker}] Proxy failed (${e.message || e}) — trying Yahoo direct`); }
+  try { return await fetchYahooHistory(ticker); }
+  catch (e) { console.warn(`[${ticker}] Yahoo direct failed (${e.message || e}) — falling back to Stooq`); }
+  return await fetchStooqHistory(ticker);
 }
 
 async function fetchTopMovers(sectorTicker) {
