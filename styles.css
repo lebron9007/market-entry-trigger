@@ -406,7 +406,7 @@ table.movers-detail {
 .col-md-cap    { width: 110px; }
 .col-md-ytd    { width: 80px; }
 .col-md-1y     { width: 90px; }
-.col-md-spark  { width: 170px; }
+.col-md-spark  { width: 110px; }
 /* col-md-name takes remaining space */
 
 table.movers-detail thead th {
@@ -449,7 +449,7 @@ table.movers-detail tbody .md-cap {
   color: var(--text-dim);
 }
 table.movers-detail tbody .md-spark {
-  padding: 6px 12px;
+  padding: 6px 10px;
 }
 table.movers-detail tbody .md-spark .sparkline {
   width: 100%;
