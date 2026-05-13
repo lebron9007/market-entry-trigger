@@ -6,8 +6,5 @@
   "description": "Five-condition market entry trigger dashboard",
   "engines": {
     "node": ">=18"
-  },
-  "dependencies": {
-    "node-html-parser": "^6.1.13"
   }
 }
