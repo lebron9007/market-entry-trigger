@@ -154,10 +154,9 @@ const MOCK = {
     currentLow: 3.50,
     currentUpper: 3.75,
     sixMoMA: _mockFedHist.reduce((a, p) => a + p.value, 0) / _mockFedHist.length,
-    projections: { "2026": 3.625, "2027": 3.125, "2028": 3.125 },
-    projectionsSource: "futures",
+    projections: { "2026": 3.625, "2027": 3.125, "2028": 3.125, "long_run": 3.000 },
     dotMedianYearEnd: 3.625,
-    direction: "down",
+    direction: "flat-then-down",
     history: _mockFedHist,
     source: "mock"
   },
@@ -242,15 +241,14 @@ function evalFed(d) {
     ? `${lower.toFixed(2)}–${upper.toFixed(2)}%`
     : `${upper.toFixed(2)}%`;
   const minProj = projVals.length ? Math.min(...projVals) : midpoint;
-  const projLabel = d.projectionsSource === "dotplot" ? "Dot plot" : "Market";
   return {
     title: "Fed Trend", tab: "fed",
     pass: status === "green", status,
     value: rangeStr,
-    takeaway: status === "green" ? `${projLabel} prices cuts to ${minProj.toFixed(2)}%.` :
-              status === "yellow" ? `${projLabel} signals hold.` :
-              `${projLabel} signals hikes ahead.`,
-    rule: "Trigger when the projected path is flat or cutting (no future-year median above current rate)",
+    takeaway: status === "green" ? `Dot plot signals cuts to ${minProj.toFixed(2)}%.` :
+              status === "yellow" ? "Dot plot signals hold." :
+              "Dot plot signals hikes ahead.",
+    rule: "Trigger when the dot-plot path is flat or cutting (no future-year median above current rate)",
     source: d.source
   };
 }
@@ -457,26 +455,13 @@ function renderFedDetail(d, evalResult) {
       return `<tr><td>${label}</td><td class="num">${v.toFixed(3)}%</td><td class="num ${cls}">${deltaStr}</td></tr>`;
     }).join("");
 
-  const fromFutures = d.projectionsSource !== "dotplot";
-  const sourceShort = fromFutures ? "Fed Funds Futures" : "FOMC dot plot";
-  const sourceSub   = fromFutures
-    ? "Federal Funds target range and market-implied path from 30-day Fed Funds Futures."
-    : "Federal Funds target range and FOMC dot-plot projections.";
-  const sourceTrajectory = fromFutures
-    ? "Rate trajectory — actual + market-implied path"
-    : "Rate trajectory — actual + dot-plot projection";
-  const sourceTableHeading = fromFutures
-    ? "Market-implied year-end rates (Fed Funds Futures)"
-    : "Dot-plot medians (March 2026 SEP)";
-  const sourceMedianLabel = fromFutures ? "Implied" : "Median";
-
   document.getElementById("fed-detail").innerHTML = `
     <div class="detail-head">
       <div>
         <h2>Fed Trend ${statusPill(evalResult.status)}</h2>
-        <div class="sub">${sourceSub}</div>
+        <div class="sub">Federal Funds target range and FOMC dot-plot projections.</div>
       </div>
-      <div class="updated">${d.history.length} historical observations · projections from ${sourceShort}</div>
+      <div class="updated">${d.history.length} historical observations</div>
     </div>
     <div class="stat-row">
       <div class="stat"><div class="stat-label">Current target</div><div class="stat-value">${rangeStr}</div><div class="stat-sub">FOMC range (lower–upper)</div></div>
@@ -485,18 +470,18 @@ function renderFedDetail(d, evalResult) {
       <div class="stat"><div class="stat-label">Direction</div><div class="stat-value">${(d.direction || "").toUpperCase()}</div></div>
     </div>
     <div class="detail-section">
-      <h3>${sourceTrajectory}</h3>
+      <h3>Rate trajectory — actual + dot-plot projection</h3>
       <div class="detail-chart"><canvas id="fed-chart"></canvas></div>
     </div>
     <div class="detail-section">
-      <h3>${sourceTableHeading}</h3>
+      <h3>Dot-plot medians (March 2026 SEP)</h3>
       <table class="data">
-        <thead><tr><th>Period</th><th class="num">${sourceMedianLabel}</th><th class="num">vs current</th></tr></thead>
+        <thead><tr><th>Period</th><th class="num">Median</th><th class="num">vs current</th></tr></thead>
         <tbody>${projRows}</tbody>
       </table>
     </div>
     <div class="rule-box">
-      <strong>Rule:</strong> Trigger when the projected path is flat or cutting — no future-year value sits above the current rate. ${
+      <strong>Rule:</strong> Trigger when the dot-plot path is flat or cutting — no future-year median sits above the current rate. ${
         evalResult.status === "green"
           ? "Cuts ahead expand financial conditions and historically support multiple expansion."
           : evalResult.status === "yellow"
@@ -505,11 +490,10 @@ function renderFedDetail(d, evalResult) {
       }
     </div>
   `;
-  drawFedTrajectoryChart("fed-chart", d.history, projections, d.projectionsSource);
+  drawFedTrajectoryChart("fed-chart", d.history, projections);
 }
 
-function drawFedTrajectoryChart(canvasId, history, projections, projectionsSource) {
-  const projLabel = projectionsSource === "dotplot" ? "Dot-plot projection" : "Market-implied projection";
+function drawFedTrajectoryChart(canvasId, history, projections) {
   if (!history || history.length === 0) return;
   const lastHist = history[history.length - 1];
 
@@ -551,7 +535,7 @@ function drawFedTrajectoryChart(canvasId, history, projections, projectionsSourc
           spanGaps: false
         },
         {
-          label: projLabel,
+          label: "Dot-plot projection",
           data: projValues,
           borderColor: "#d29922",
           backgroundColor: "rgba(0,0,0,0)",
@@ -1292,39 +1276,6 @@ async function fetchFedSeries() {
   return { upper, lower, sourceLabel: "manual" };
 }
 
-// 30-day Fed Funds Futures imply the market-expected average Fed Funds rate
-// for each delivery month: implied rate = 100 - contract price. This is the
-// same data CME FedWatch surfaces, sourced directly. December contracts
-// (month code Z) give year-end projections analogous to FOMC dot-plot YE values.
-async function fetchFedFuturesProjections() {
-  const now = new Date();
-  const thisYear = now.getFullYear();
-  const targetYears = [];
-  // Include current year only if we're not yet in December.
-  if (now.getMonth() < 11) targetYears.push(thisYear);
-  targetYears.push(thisYear + 1, thisYear + 2);
-
-  const contracts = targetYears.map(y => ({
-    ticker: `ZQZ${String(y).slice(-2)}.CBT`,
-    year: y
-  }));
-
-  const settled = await Promise.allSettled(
-    contracts.map(c => fetchHistoryWithFallback(c.ticker))
-  );
-
-  const projections = {};
-  settled.forEach((r, i) => {
-    if (r.status !== "fulfilled") return;
-    const prices = r.value.prices;
-    if (!prices || prices.length === 0) return;
-    const last = prices[prices.length - 1];
-    if (!Number.isFinite(last)) return;
-    projections[String(contracts[i].year)] = +(100 - last).toFixed(3);
-  });
-  return projections;
-}
-
 async function fetchFed_live() {
   const { upper, lower } = await fetchFedSeries();
   const last     = upper[upper.length - 1];
@@ -1332,37 +1283,10 @@ async function fetchFed_live() {
   const sixMo    = upper.slice(-180);
   const sixMoMA  = sixMo.reduce((a, p) => a + p.value, 0) / sixMo.length;
 
-  // Prefer market-implied projections from Fed Funds Futures (live, daily).
-  // Fall back to manual dot-plot JSON if futures aren't available.
-  let projections = {};
-  let projectionsSource = "futures";
-  try {
-    const futures = await fetchFedFuturesProjections();
-    if (Object.keys(futures).length === 0) throw new Error("no futures contracts returned");
-    projections = futures;
-  } catch (e) {
-    console.warn("Fed Funds Futures projection unavailable, using data/dotplot.json:", e.message || e);
-    try {
-      const dot = await fetch("data/dotplot.json").then(r => r.json());
-      projections = dot.projections || {};
-      projectionsSource = "dotplot";
-    } catch (_) { /* both sources gone — leave projections empty */ }
-  }
-
-  // Determine direction from the projection path.
-  const midpoint = (last.value + lastLow.value) / 2;
-  const nextYearKey = String(new Date().getFullYear() + 1);
-  const nextYearProj = projections[nextYearKey];
-  let direction = "flat";
-  if (Number.isFinite(nextYearProj)) {
-    if (nextYearProj < midpoint - 0.10) direction = "down";
-    else if (nextYearProj > midpoint + 0.10) direction = "up";
-  }
-
-  const ye =
-    projections[String(new Date().getFullYear())] ??
-    projections[nextYearKey] ??
-    last.value;
+  const dot = await fetch("data/dotplot.json").then(r => r.json());
+  const projections = dot.projections || {};
+  // Backwards-compat: derive next-year median if projections missing.
+  const ye = projections[String(new Date().getFullYear())] ?? dot.median_projection_year_end ?? last.value;
 
   return {
     current: last.value,
@@ -1370,9 +1294,8 @@ async function fetchFed_live() {
     currentLow:  lastLow.value,
     sixMoMA,
     projections,
-    projectionsSource,
     dotMedianYearEnd: ye,
-    direction,
+    direction: dot.direction,
     history: upper.slice(-180),
     source: "live"
   };
