@@ -1478,43 +1478,49 @@ async function fetchLeading_live() {
 }
 
 async function fetchEarnings_live(sectorTicker) {
-  const key = window.CONFIG.FINNHUB_API_KEY;
-  if (!key) throw new Error("FINNHUB_API_KEY missing");
+  // Routes through the /api/earnings serverless function which scrapes
+  // MarketBeat via r.jina.ai (no key, edge-cached 7 days per ticker).
+  // Falls through to mock when the proxy isn't available (local dev).
+  const host = (typeof location !== "undefined" ? location.hostname : "") || "";
+  if (host === "localhost" || host === "127.0.0.1" || host === "") {
+    throw new Error("earnings proxy unavailable in local dev");
+  }
   const tickers = SECTOR_CONSTITUENTS[sectorTicker] || [];
   if (tickers.length === 0) throw new Error(`No constituents for ${sectorTicker}`);
+
   const results = await Promise.allSettled(tickers.map(t =>
-    fetch(`https://finnhub.io/api/v1/stock/earnings?symbol=${encodeURIComponent(t)}&token=${key}`)
+    fetch(`/api/earnings?ticker=${encodeURIComponent(t)}`)
       .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
   ));
+
   const perTicker = [];
   let beats = 0, total = 0, upwardSum = 0;
   results.forEach((r, i) => {
     const ticker = tickers[i];
-    if (r.status !== "fulfilled" || !Array.isArray(r.value) || r.value.length === 0) {
+    if (r.status !== "fulfilled" || !r.value || !r.value.latest) {
       perTicker.push({ ticker, actual: null, estimate: null, surprise: null, beat: false });
       return;
     }
-    const latest = r.value[0];
-    const beat = latest.actual != null && latest.estimate != null && latest.actual > latest.estimate;
-    if (latest.actual != null && latest.estimate != null) {
-      total++;
-      if (beat) beats++;
-    }
+    const latest = r.value.latest;
+    const beat   = Boolean(latest.beat);
+    total++;
+    if (beat) beats++;
     perTicker.push({
       ticker,
-      actual: latest.actual,
+      actual:   latest.actual,
       estimate: latest.estimate,
-      surprise: latest.surprisePercent,
+      surprise: latest.surprise,
       beat
     });
-    const last4 = r.value.slice(0, 4);
-    upwardSum += last4.filter(q => (q.surprisePercent || 0) > 0).length;
+    const last4 = (r.value.history || []).slice(0, 4);
+    upwardSum += last4.filter(q => q.beat).length;
   });
-  if (total === 0) throw new Error("No earnings data returned");
+
+  if (total === 0) throw new Error("No earnings data returned for any constituent");
   return {
     sectorTicker,
     beatRate: beats / total,
-    quartersUpward: Math.round(upwardSum / Math.max(1, perTicker.length)),
+    quartersUpward: Math.round(upwardSum / Math.max(1, total)),
     sample: total,
     perTicker,
     source: "live"
