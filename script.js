@@ -574,7 +574,10 @@ function drawFedTrajectoryChart(canvasId, history, projections) {
           bodyFont: { family: "ui-monospace, SFMono-Regular, Menlo, monospace", size: 12 },
           filter: (item) => item.parsed.y !== null,
           callbacks: {
-            title: (items) => toFullDate(items[0].label),
+            title: (items) => {
+              const v = items[0].parsed.x;
+              return v ? toFullDate(new Date(v).toISOString().slice(0, 10)) : "";
+            },
             label: (item) => `${item.dataset.label}: ${item.parsed.y.toFixed(3)}%`
           }
         }
@@ -585,14 +588,20 @@ function drawFedTrajectoryChart(canvasId, history, projections) {
           grid: { color: "rgba(139,148,158,0.12)" }
         },
         x: {
+          // Time scale: labels distribute by actual date, so the sparse
+          // year-end projection points (12/2026, 12/2027, …) get their own
+          // ticks instead of being skipped over by index-based autoSkip.
+          type: "time",
+          time: {
+            unit: "month",
+            tooltipFormat: "MMM d, yyyy",
+            displayFormats: { month: "MM/yyyy", year: "yyyy" }
+          },
           ticks: {
             color: "#8b949e",
             maxRotation: 0,
             autoSkip: true,
-            maxTicksLimit: 8,
-            callback: function (value) {
-              return toMonthYear(this.getLabelForValue(value));
-            }
+            maxTicksLimit: 8
           },
           grid: { display: false }
         }
