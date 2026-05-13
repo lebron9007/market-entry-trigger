@@ -1288,6 +1288,7 @@ async function fetchMargin_live() {
 }
 
 async function fetchStooqClose(ticker) {
+  // Legacy fallback used only if fetchHistoryWithFallback fails entirely.
   const symbol = ticker.startsWith("^") ? ticker : `${ticker}.us`;
   const resp = await fetch(`https://stooq.com/q/d/l/?s=${symbol.toLowerCase()}&i=d`);
   if (!resp.ok) throw new Error(`Stooq ${ticker} HTTP ${resp.status}`);
@@ -1301,11 +1302,26 @@ async function fetchStooqClose(ticker) {
   return ((last - first) / first) * 100;
 }
 
+// Derive 3-month % return from a 1-year price series (last ~66 trading days).
+function _compute3M(prices) {
+  if (!prices || prices.length < 66) return null;
+  const start = prices[prices.length - 66];
+  const end   = prices[prices.length - 1];
+  if (!start || isNaN(start) || isNaN(end)) return null;
+  return ((end - start) / start) * 100;
+}
+
 async function fetchLeading_live() {
+  // Use the unified history fetcher (proxy → Yahoo direct → Stooq), then slice 3M.
+  // This keeps the data source consistent with the constituent expansion view.
   const tickers = ["SPY", ...Object.keys(SECTOR_ETFS)];
-  const results = await Promise.allSettled(tickers.map(t => fetchStooqClose(t)));
+  const settled = await Promise.allSettled(tickers.map(t => fetchHistoryWithFallback(t)));
   const closes = {};
-  results.forEach((r, i) => { if (r.status === "fulfilled") closes[tickers[i]] = r.value; });
+  settled.forEach((r, i) => {
+    if (r.status !== "fulfilled") return;
+    const m3 = _compute3M(r.value.prices);
+    if (m3 != null) closes[tickers[i]] = m3;
+  });
   if (closes["SPY"] == null) throw new Error("SPY 3M close missing");
   const spy = closes["SPY"];
   const allRanked = Object.keys(SECTOR_ETFS)

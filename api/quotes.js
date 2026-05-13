@@ -46,15 +46,18 @@ export default async function handler(req, res) {
     }
 
     const ts = result.timestamp || [];
-    const adj =
-      result.indicators?.adjclose?.[0]?.adjclose ||
-      result.indicators?.quote?.[0]?.close ||
-      [];
+    // Use RAW close prices — matches Yahoo Finance UI "1Y change %" exactly.
+    // adjclose includes dividend reinvestment (total return), which causes
+    // dividend-paying stocks to look higher than what users see on Yahoo.
+    // Trade-off: stocks with a split inside the window will be wrong (rare).
+    const close = result.indicators?.quote?.[0]?.close || [];
+    // Fallback to adjclose only if raw close is empty.
+    const series = close.length ? close : (result.indicators?.adjclose?.[0]?.adjclose || []);
 
     const rows = ts
       .map((t, i) => ({
         date: new Date(t * 1000).toISOString().slice(0, 10),
-        close: adj[i]
+        close: series[i]
       }))
       .filter(r => r.close != null && !isNaN(r.close));
 
