@@ -52,6 +52,22 @@ html, body {
   margin: 6px 0 0;
   font-size: 14px;
 }
+.credit {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+.credit a {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px dotted rgba(88, 166, 255, 0.4);
+  transition: border-color 0.12s, color 0.12s;
+}
+.credit a:hover {
+  border-bottom-color: var(--accent);
+  color: #79b8ff;
+}
 .updated {
   font-family: var(--mono);
   font-size: 12px;
