@@ -440,25 +440,12 @@ function renderAlignmentTable(data, spyRows) {
     : "Not enough completed 12-month windows yet to compute summary statistics.";
 
   const tbody = rows.map(r => {
-    const dateStr = r.date;
     const scoreClass = `score-cell score-${r.score}`;
-    const spyStr = r.fr.start ? `$${r.fr.start.toFixed(2)}` : "—";
-    let endStr = "—", retStr = "—", retClass = "";
-    if (r.fr.status === "ok") {
-      endStr = `$${r.fr.end.toFixed(2)}`;
-      retStr = `${r.fr.pct >= 0 ? "+" : ""}${r.fr.pct.toFixed(1)}%`;
-      retClass = r.fr.pct >= 0 ? "beat" : "miss";
-    } else if (r.fr.status === "pending") {
-      endStr = "pending";
-    }
     return `
       <tr>
-        <td class="mono">${dateStr}</td>
+        <td class="mono">${r.date}</td>
         <td class="num ${scoreClass}">${r.score}/5</td>
-        <td class="note">${r.note || ""}</td>
-        <td class="num">${spyStr}</td>
-        <td class="num">${endStr}</td>
-        <td class="num ${retClass}">${retStr}</td>
+        <td class="note">${r.note || "—"}</td>
       </tr>`;
   }).join("");
 
@@ -471,9 +458,6 @@ function renderAlignmentTable(data, spyRows) {
             <th>Date</th>
             <th class="num">Score</th>
             <th>Event</th>
-            <th class="num">SPY</th>
-            <th class="num">+12 mo</th>
-            <th class="num">Return</th>
           </tr>
         </thead>
         <tbody>${tbody}</tbody>

@@ -457,30 +457,41 @@ html, body {
 }
 .history-summary strong { color: var(--text); font-weight: 600; }
 .history-table-scroll {
-  max-height: 320px;
+  max-height: 280px;
   overflow-y: auto;
   border: 1px solid var(--border);
   border-radius: 8px;
 }
 table.history-table {
   font-size: 12px;
+  table-layout: fixed;
 }
 table.history-table thead th {
   position: sticky;
   top: 0;
   background: var(--panel);
   z-index: 1;
+  padding: 10px 14px;
 }
+table.history-table th:nth-child(1),
+table.history-table td:nth-child(1) { width: 100px; }
+table.history-table th:nth-child(2),
+table.history-table td:nth-child(2) { width: 80px; text-align: right; }
+/* third column (Event) takes remaining space */
 table.history-table td {
-  padding: 8px 12px;
+  padding: 9px 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 table.history-table td.mono {
   font-family: var(--mono);
   color: var(--text-dim);
 }
 table.history-table td.note {
-  color: var(--text-dim);
-  font-style: italic;
+  color: var(--text);
+  font-style: normal;
+  white-space: normal;
 }
 table.history-table td.score-cell { font-weight: 600; }
 table.history-table td.score-5 { color: #2ea043; }
