@@ -3,7 +3,16 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Market Entry Trigger</title>
+  <title>Market Entry Trigger — A 5-condition framework for high-probability entries</title>
+  <meta name="description" content="A live dashboard tracking five quantitative conditions whose historical alignment has preceded strong forward returns in U.S. equities. Built around publicly available data: FRED, FINRA, Yahoo Finance, MarketBeat." />
+  <meta name="theme-color" content="#0d1117" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Market Entry Trigger" />
+  <meta property="og:description" content="A live dashboard tracking five conditions that historically precede high-probability market entries." />
+  <meta property="og:url" content="https://market-entry-trigger.vercel.app/" />
+  <meta name="twitter:card" content="summary_large_image" />
+
   <link rel="stylesheet" href="styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
@@ -15,7 +24,7 @@
         <h1>Market Entry Trigger</h1>
         <div class="updated" id="last-updated">Loading…</div>
       </div>
-      <p class="subtitle">Five conditions that historically precede high-probability market entries.</p>
+      <p class="subtitle">A quantitative framework for identifying high-probability market entry windows. Tracks five conditions whose historical alignment has preceded strong forward returns in U.S. equities.</p>
     </header>
 
     <nav class="tabs" id="tabs">
@@ -44,6 +53,16 @@
         </div>
       </div>
 
+      <section class="intro-section">
+        <h2>How this works</h2>
+        <p>
+          Each indicator below is evaluated independently against a fixed rule. When all five conditions are met simultaneously — a rare event — the historical base rate for positive 12-month forward returns in the S&amp;P 500 is approximately <strong>80&ndash;85%</strong>, based on retrospective analysis of major historical alignments (e.g.&nbsp;2008&ndash;2009, March&nbsp;2020).
+        </p>
+        <p class="intro-note">
+          This dashboard surfaces the framework's current state. It does not make recommendations and is not investment advice.
+        </p>
+      </section>
+
       <div class="cards" id="cards">
         <div class="card skeleton"><div class="sk sk-title"></div><div class="sk sk-value"></div><div class="sk sk-line"></div><div class="sk sk-line sk-line-narrow"></div></div>
         <div class="card skeleton"><div class="sk sk-title"></div><div class="sk sk-value"></div><div class="sk sk-line"></div><div class="sk sk-line sk-line-narrow"></div></div>
@@ -65,6 +84,49 @@
         <div class="chart-wrap"><canvas id="history-chart"></canvas></div>
         <p class="history-note" id="history-note"></p>
       </div>
+
+      <section class="methodology-section">
+        <h2>The five conditions</h2>
+        <p class="section-intro">Each indicator's rule, data source, and known limitations.</p>
+        <div class="methodology-grid">
+          <article class="methodology-item">
+            <h3>1. VIX &gt; 30</h3>
+            <p class="rule">Trigger when CBOE VIX closes above 30.</p>
+            <p class="source"><strong>Source:</strong> <code>datasets/finance-vix</code> (CSV, ~15-min delay).</p>
+            <p class="limitation"><strong>Limitation:</strong> A daily spike can occur for idiosyncratic reasons (single-stock events, earnings season). A sustained reading carries more signal than a one-day move.</p>
+          </article>
+          <article class="methodology-item">
+            <h3>2. Fed rate trajectory</h3>
+            <p class="rule">Trigger when no future-year FOMC dot-plot median sits above the current target rate.</p>
+            <p class="source"><strong>Source:</strong> Current target from FRED (DFEDTARU/DFEDTARL). Projections from FOMC's quarterly Summary of Economic Projections.</p>
+            <p class="limitation"><strong>Limitation:</strong> Rate updates 8&times;/year on FOMC dates; dot plot refreshes only 4&times;/year (Mar/Jun/Sep/Dec). Reflects FOMC participants' expectations, not market pricing.</p>
+          </article>
+          <article class="methodology-item">
+            <h3>3. Margin debt decreasing</h3>
+            <p class="rule">Trigger when FINRA monthly debit balances are lower than the prior month.</p>
+            <p class="source"><strong>Source:</strong> FINRA "Debit Balances in Customers' Securities Margin Accounts."</p>
+            <p class="limitation"><strong>Limitation:</strong> Lagging indicator — FINRA publishes ~3 weeks after month-end. Monthly granularity misses intra-month deleveraging.</p>
+          </article>
+          <article class="methodology-item">
+            <h3>4. Clear leading sector</h3>
+            <p class="rule">Trigger when one sector ETF outperforms SPY by at least 3pp over 3 months <em>and</em> leads the runner-up by 3pp.</p>
+            <p class="source"><strong>Source:</strong> Yahoo Finance daily closes for SPY and 12 SPDR sector ETFs.</p>
+            <p class="limitation"><strong>Limitation:</strong> 3-month window; momentum can reverse quickly. Identifies that capital is flowing somewhere — does not validate the underlying thesis.</p>
+          </article>
+          <article class="methodology-item">
+            <h3>5. Leading sector earnings</h3>
+            <p class="rule">Trigger when &ge;60% of the leading sector's top-10 constituents beat their consensus EPS estimate in the most recent quarter.</p>
+            <p class="source"><strong>Source:</strong> MarketBeat earnings tables, via <code>r.jina.ai</code>.</p>
+            <p class="limitation"><strong>Limitation:</strong> Quarterly cadence; constituents don't all report in the same quarter. Backward-looking — beating last quarter does not predict the next.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="disclaimer">
+        <h3>Disclaimers</h3>
+        <p>This dashboard is provided for informational and educational purposes only and does not constitute investment, legal, or tax advice. Past performance is not indicative of future results. The 80&ndash;85% historical base rate is an observation drawn from a small number of historical alignments and should not be interpreted as a probability for any specific future period.</p>
+        <p>All data is sourced from public APIs and may contain inaccuracies, lags, or scraping artifacts. Always verify against primary sources before making investment decisions. No warranty is made as to accuracy, completeness, or fitness for any particular purpose.</p>
+      </section>
     </section>
 
     <!-- VIX detail -->

@@ -220,9 +220,9 @@ function evalVIX(d) {
     title: "VIX Stress", tab: "vix",
     pass: status === "green", status,
     value: v.toFixed(1),
-    takeaway: status === "green" ? "Fear-pricing reached. Entry zone." :
-              status === "yellow" ? "Elevated, not panicked." :
-              "Complacent — no crisis pricing.",
+    takeaway: status === "green" ? "Above trigger threshold (>30); fear pricing reached." :
+              status === "yellow" ? "Elevated but below the trigger threshold." :
+              "Below trigger threshold; no fear pricing.",
     rule: "Trigger when VIX > 30",
     source: d.source
   };
@@ -262,9 +262,9 @@ function evalMargin(d) {
     pass: status === "green", status,
     value: `${d.unitsLabel}${d.latest.toFixed(0)}`,
     takeaway: `${pctDelta >= 0 ? "+" : ""}${pctDelta.toFixed(1)}% MoM. ${
-      status === "green" ? "Forced de-risking underway." :
-      status === "yellow" ? "Slight unwind beginning." :
-      "Leverage still building."}`,
+      status === "green" ? "Decreasing — meets trigger." :
+      status === "yellow" ? "Slight decrease; below margin." :
+      "Increasing — fails trigger."}`,
     rule: "Trigger when FINRA margin debt is decreasing",
     source: d.source
   };
@@ -301,12 +301,12 @@ function computeConfidence(score) {
   return [5, 15, 30, 50, 70, 85][Math.max(0, Math.min(5, score))];
 }
 function verdictFor(score) {
-  if (score === 5) return "All five aligned — historically the highest-probability entry window.";
-  if (score === 4) return "Strong setup. One condition shy of full alignment.";
-  if (score === 3) return "Mixed signals. Wait for one or two more triggers.";
-  if (score === 2) return "Early. Most conditions not met.";
-  if (score === 1) return "Risk-on regime. Not an entry zone.";
-  return "Late-cycle complacency. Capital preservation mode.";
+  if (score === 5) return "All five conditions met. Historical base rate for positive 12-month forward returns: ~80–85%.";
+  if (score === 4) return "Four conditions met. Strong setup, one short of full alignment.";
+  if (score === 3) return "Three conditions met. Mixed signals — half the framework is favorable.";
+  if (score === 2) return "Two conditions met. Most signals remain unfavorable.";
+  if (score === 1) return "One condition met. Framework indicates a risk-on regime.";
+  return "No conditions met. Framework signals caution.";
 }
 
 // ============================================================
@@ -350,11 +350,13 @@ function renderScore(score) {
 // ============================================================
 // History chart (overview)
 // ============================================================
+// Subdued sequential blue palette — peak alignment is bright accent blue,
+// weak readings fade to grey. Less alarming than red/green.
 function colorForScore(s) {
-  if (s >= 5) return "#2ea043";
-  if (s >= 4) return "#7fc97f";
-  if (s >= 3) return "#d29922";
-  return "#da3633";
+  if (s >= 5) return "#58a6ff";
+  if (s >= 4) return "rgba(88, 166, 255, 0.65)";
+  if (s >= 3) return "rgba(88, 166, 255, 0.35)";
+  return "rgba(139, 148, 158, 0.35)";
 }
 
 function renderHistory(points, currentDate, currentScore) {
