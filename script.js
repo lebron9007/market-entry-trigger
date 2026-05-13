@@ -341,7 +341,10 @@ function renderScore(score) {
   const conf = computeConfidence(score);
   document.getElementById("confidence-value").textContent = `${conf}%`;
   document.getElementById("confidence-fill").style.width = `${conf}%`;
-  document.getElementById("verdict").textContent = verdictFor(score);
+  const verdictEl = document.getElementById("verdict");
+  verdictEl.textContent = verdictFor(score);
+  const tier = score >= 5 ? "5" : score >= 4 ? "4" : score >= 3 ? "3" : "low";
+  verdictEl.className = `verdict score-${tier}`;
 }
 
 // ============================================================
@@ -385,9 +388,11 @@ function renderHistory(points, currentDate, currentScore) {
   });
 
   const peaks = data.filter(p => p.score === 5).map(p => p.date);
-  document.getElementById("history-note").textContent = peaks.length
+  const peakNote = peaks.length
     ? `Last 5/5 alignment: ${peaks[peaks.length - 1]}. Prior peaks: ${peaks.slice(0, -1).join(", ") || "none"}.`
     : "No 5/5 alignments in this window.";
+  document.getElementById("history-note").textContent =
+    `${peakNote} · Pre-2026 scores are representative estimates based on contemporaneous reports of VIX, Fed policy, margin debt, leading sectors, and earnings — not back-computed from live APIs.`;
 }
 
 // ============================================================
@@ -540,8 +545,37 @@ function drawFedTrajectoryChart(canvasId, history, projections) {
     ...projPoints.slice(1).map(p => p.value)
   ];
 
+  // Inline plugin: draw a dashed vertical "Today" marker at the present
+  // moment, separating past (solid) from future (dashed) sections.
+  const todayMarkerPlugin = {
+    id: "todayMarker",
+    afterDraw: (chart) => {
+      const xScale = chart.scales.x;
+      const yScale = chart.scales.y;
+      if (!xScale || !yScale) return;
+      const x = xScale.getPixelForValue(todayMs);
+      if (x < xScale.left || x > xScale.right) return;
+      const ctx = chart.ctx;
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(x, yScale.top);
+      ctx.lineTo(x, yScale.bottom);
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = "rgba(139,148,158,0.55)";
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = "rgba(139,148,158,0.9)";
+      ctx.font = '11px ui-monospace, SFMono-Regular, Menlo, monospace';
+      ctx.textAlign = "left";
+      ctx.fillText("today", x + 4, yScale.top + 12);
+      ctx.restore();
+    }
+  };
+
   new Chart(document.getElementById(canvasId), {
     type: "line",
+    plugins: [todayMarkerPlugin],
     data: {
       labels: allDates,
       datasets: [

@@ -130,9 +130,42 @@ html, body {
   transition: width 0.6s ease;
 }
 .verdict {
-  margin-top: 6px;
-  font-size: 14px;
-  font-weight: 500;
+  margin-top: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: -0.005em;
+  color: var(--text);
+}
+.verdict.score-5 { color: var(--green); }
+.verdict.score-4 { color: #7fc97f; }
+.verdict.score-3 { color: var(--yellow); }
+.verdict.score-low { color: var(--text-dim); }
+
+/* Skeleton loading state — initial cards before JS hydrates */
+.card.skeleton {
+  border-left-color: var(--border);
+  cursor: default;
+}
+.card.skeleton:hover { transform: none; border-color: var(--border); }
+.sk {
+  background: linear-gradient(
+    90deg,
+    rgba(139,148,158,0.06) 0%,
+    rgba(139,148,158,0.16) 50%,
+    rgba(139,148,158,0.06) 100%
+  );
+  background-size: 200% 100%;
+  border-radius: 3px;
+  animation: sk-shimmer 1.4s infinite linear;
+}
+.sk-title { height: 10px; width: 55%; margin-bottom: 12px; }
+.sk-value { height: 22px; width: 40%; margin-bottom: 10px; }
+.sk-line { height: 10px; width: 100%; margin-bottom: 6px; }
+.sk-line-narrow { width: 60%; }
+@keyframes sk-shimmer {
+  0%   { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
 }
 
 /* Cards (lean overview cards) */
@@ -510,7 +543,50 @@ table.data td.miss { color: var(--red); }
   font-family: var(--mono);
 }
 
-@media (max-width: 600px) {
-  .score-panel { grid-template-columns: 1fr; gap: 16px; text-align: left; }
-  .score-number { font-size: 48px; }
+/* ---------- Responsive ---------- */
+
+@media (max-width: 768px) {
+  .container { padding: 20px 14px 48px; }
+  .header h1 { font-size: 22px; }
+  .subtitle { font-size: 13px; }
+
+  /* Score panel: stack vertically */
+  .score-panel { grid-template-columns: 1fr; gap: 16px; padding: 20px; }
+  .score-number { font-size: 52px; }
+  .verdict { font-size: 14px; }
+
+  /* Cards: tighter grid */
+  .cards { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
+  .card { padding: 14px; }
+  .card-value { font-size: 20px; }
+
+  /* Detail panels */
+  .detail { padding: 20px 16px; }
+  .detail-head h2 { font-size: 18px; }
+  .stat-row { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .stat { padding: 12px 14px; }
+  .stat-value { font-size: 18px; }
+
+  /* Tabs: allow horizontal scroll instead of wrap */
+  .tabs { gap: 0; -webkit-overflow-scrolling: touch; }
+  .tab { padding: 10px 12px; font-size: 13px; }
+
+  /* Tables: horizontal scroll wrapper */
+  .detail-section { overflow-x: auto; }
+  table.data { font-size: 12px; }
+  table.data th, table.data td { padding: 8px 10px; }
+
+  /* Mover-detail (sectors expansion): preserve readability via scroll */
+  .movers-wrapper { padding: 4px 4px 12px 12px; overflow-x: auto; }
+  table.movers-detail { min-width: 560px; }
+
+  /* History chart: shorter on phones */
+  .chart-wrap, .detail-chart { height: 220px; }
+}
+
+@media (max-width: 420px) {
+  .header h1 { font-size: 20px; }
+  .score-number { font-size: 44px; }
+  .cards { grid-template-columns: 1fr; }
+  .stat-row { grid-template-columns: 1fr 1fr; }
 }
