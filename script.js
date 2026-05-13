@@ -359,35 +359,52 @@ function colorForScore(s) {
   return "rgba(139, 148, 158, 0.35)";
 }
 
-function renderHistory(points, currentDate, currentScore) {
+function scoreRadius(s) {
+  if (s >= 5) return 8;
+  if (s >= 4) return 5;
+  if (s >= 3) return 3;
+  return 2;
+}
+
+// Long-range weekly SPY closes, used as the historical-alignment chart backdrop.
+async function fetchSpyHistory() {
+  // /api/quotes works on Vercel; in local dev fall through silently.
+  const host = (typeof location !== "undefined" ? location.hostname : "") || "";
+  if (host === "localhost" || host === "127.0.0.1" || host === "") return null;
+  try {
+    const r = await fetch("/api/quotes?ticker=SPY&range=max&interval=1wk");
+    if (!r.ok) return null;
+    const j = await r.json();
+    if (!j.rows || j.rows.length < 100) return null;
+    return j.rows;
+  } catch (_) {
+    return null;
+  }
+}
+
+function nearestSpyAtDate(spyRows, targetIso) {
+  // Binary-search nearest weekly close to a given month string. We trim the
+  // alignment label to YYYY-MM-01 and find the closest SPY row by timestamp.
+  const target = new Date(`${targetIso}-01`).getTime();
+  let lo = 0, hi = spyRows.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (new Date(spyRows[mid].date).getTime() < target) lo = mid + 1;
+    else hi = mid;
+  }
+  const a = spyRows[Math.max(0, lo - 1)];
+  const b = spyRows[lo];
+  if (!a) return b;
+  if (!b) return a;
+  return Math.abs(new Date(a.date) - target) < Math.abs(new Date(b.date) - target) ? a : b;
+}
+
+async function renderHistory(points, currentDate, currentScore) {
+  // Build the alignment dataset (append today as a "live" point).
   const data = [...points];
   const lastIso = data[data.length - 1]?.date;
   const curIso = currentDate.slice(0, 7);
   if (lastIso !== curIso) data.push({ date: curIso, score: currentScore, note: "Today" });
-
-  new Chart(document.getElementById("history-chart"), {
-    type: "bar",
-    data: {
-      labels: data.map(p => p.date),
-      datasets: [{
-        label: "Triggers met",
-        data: data.map(p => p.score),
-        backgroundColor: data.map(p => colorForScore(p.score)),
-        borderRadius: 2, barPercentage: 1.0, categoryPercentage: 0.9
-      }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: { callbacks: { afterLabel: (c) => data[c.dataIndex].note || "" } }
-      },
-      scales: {
-        y: { min: 0, max: 5, ticks: { stepSize: 1, color: "#8b949e" }, grid: { color: "rgba(139,148,158,0.12)" } },
-        x: { ticks: { color: "#8b949e", maxRotation: 0, autoSkip: true, maxTicksLimit: 12 }, grid: { display: false } }
-      }
-    }
-  });
 
   const peaks = data.filter(p => p.score === 5).map(p => p.date);
   const peakNote = peaks.length
@@ -395,6 +412,146 @@ function renderHistory(points, currentDate, currentScore) {
     : "No 5/5 alignments in this window.";
   document.getElementById("history-note").textContent =
     `${peakNote} · Pre-2026 scores are representative estimates based on contemporaneous reports of VIX, Fed policy, margin debt, leading sectors, and earnings — not back-computed from live APIs.`;
+
+  const canvas = document.getElementById("history-chart");
+
+  // Pull SPY backdrop. If unavailable (local dev, proxy down), fall back to
+  // the simpler score-bars chart so the panel never goes empty.
+  const spyRows = await fetchSpyHistory();
+  if (!spyRows) {
+    new Chart(canvas, {
+      type: "bar",
+      data: {
+        labels: data.map(p => p.date),
+        datasets: [{
+          label: "Triggers met",
+          data: data.map(p => p.score),
+          backgroundColor: data.map(p => colorForScore(p.score)),
+          borderRadius: 2, barPercentage: 1.0, categoryPercentage: 0.9
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { afterLabel: (c) => data[c.dataIndex].note || "" } }
+        },
+        scales: {
+          y: { min: 0, max: 5, ticks: { stepSize: 1, color: "#8b949e" }, grid: { color: "rgba(139,148,158,0.12)" } },
+          x: { ticks: { color: "#8b949e", maxRotation: 0, autoSkip: true, maxTicksLimit: 12 }, grid: { display: false } }
+        }
+      }
+    });
+    return;
+  }
+
+  // Filter SPY rows to start at the first alignment date so the x-axis spans
+  // the same window we have alignment data for.
+  const firstAlignDate = new Date(`${data[0].date}-01`).getTime();
+  const spyClipped = spyRows.filter(r => new Date(r.date).getTime() >= firstAlignDate - 1000 * 60 * 60 * 24 * 90);
+
+  const spyData = spyClipped.map(r => ({ x: r.date, y: r.close }));
+
+  // Build scatter points: each alignment date placed on the SPY line at the
+  // closest weekly close.
+  const markers = data.map(p => {
+    const nearest = nearestSpyAtDate(spyClipped, p.date);
+    if (!nearest) return null;
+    return {
+      x: nearest.date,
+      y: nearest.close,
+      score: p.score,
+      note: p.note || "",
+      alignDate: p.date
+    };
+  }).filter(Boolean);
+
+  new Chart(canvas, {
+    data: {
+      datasets: [
+        {
+          type: "line",
+          label: "SPY",
+          data: spyData,
+          borderColor: "rgba(88, 166, 255, 0.75)",
+          backgroundColor: "rgba(88, 166, 255, 0.06)",
+          borderWidth: 1.4,
+          fill: true,
+          pointRadius: 0,
+          pointHoverRadius: 0,
+          tension: 0.18,
+          order: 2
+        },
+        {
+          type: "scatter",
+          label: "Alignment",
+          data: markers,
+          pointRadius: (ctx) => scoreRadius(ctx.raw?.score ?? 0),
+          pointHoverRadius: (ctx) => scoreRadius(ctx.raw?.score ?? 0) + 2,
+          pointBackgroundColor: (ctx) => colorForScore(ctx.raw?.score ?? 0),
+          pointBorderColor: "rgba(13, 17, 23, 0.9)",
+          pointBorderWidth: 1.5,
+          showLine: false,
+          order: 1
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: "nearest", intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: "rgba(13,17,23,0.95)",
+          borderColor: "#30363d",
+          borderWidth: 1,
+          padding: 10,
+          titleColor: "#e6edf3",
+          bodyColor: "#e6edf3",
+          callbacks: {
+            title: (items) => {
+              const it = items[0];
+              const iso = it.raw?.alignDate || it.raw?.x || it.parsed.x;
+              const d = typeof iso === "number" ? new Date(iso) : new Date(iso);
+              return d.toLocaleDateString("en-US", { year: "numeric", month: "short" });
+            },
+            label: (item) => {
+              if (item.dataset.label === "SPY") {
+                return `SPY: $${item.parsed.y.toFixed(2)}`;
+              }
+              const score = item.raw?.score ?? 0;
+              return `Alignment: ${score}/5`;
+            },
+            afterLabel: (item) => {
+              if (item.dataset.label !== "SPY" && item.raw?.note) return item.raw.note;
+              return undefined;
+            }
+          }
+        }
+      },
+      scales: {
+        y: {
+          type: "logarithmic",
+          ticks: {
+            color: "#8b949e",
+            callback: (v) => `$${v}`
+          },
+          grid: { color: "rgba(139,148,158,0.10)" }
+        },
+        x: {
+          type: "time",
+          time: {
+            unit: "year",
+            tooltipFormat: "MMM yyyy",
+            displayFormats: { year: "yyyy" }
+          },
+          ticks: { color: "#8b949e", maxRotation: 0, autoSkip: true, maxTicksLimit: 12 },
+          grid: { display: false }
+        }
+      }
+    }
+  });
 }
 
 // ============================================================
@@ -1587,7 +1744,7 @@ async function main() {
 
   try {
     const history = await fetch("data/history.json").then(r => r.json());
-    renderHistory(history.points, new Date().toISOString(), score);
+    await renderHistory(history.points, new Date().toISOString(), score);
   } catch (err) {
     console.warn("history.json load failed:", err);
   }

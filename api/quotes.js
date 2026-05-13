@@ -6,8 +6,9 @@
 // Response: { ticker, rows: [{ date: "YYYY-MM-DD", close: number }, ...] }
 
 export default async function handler(req, res) {
-  const ticker = (req.query.ticker || "").trim();
-  const range = (req.query.range || "1y").trim();
+  const ticker   = (req.query.ticker || "").trim();
+  const range    = (req.query.range || "1y").trim();
+  const interval = (req.query.interval || "1d").trim();
 
   // Basic input validation — letters, digits, ^, ., -, =
   if (!ticker || !/^[A-Za-z0-9^.\-=]{1,15}$/.test(ticker)) {
@@ -16,10 +17,13 @@ export default async function handler(req, res) {
   if (!/^(1mo|3mo|6mo|ytd|1y|2y|5y|10y|max)$/.test(range)) {
     return res.status(400).json({ error: "invalid range" });
   }
+  if (!/^(1d|5d|1wk|1mo|3mo)$/.test(interval)) {
+    return res.status(400).json({ error: "invalid interval" });
+  }
 
   const url =
     `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}` +
-    `?range=${range}&interval=1d&includeAdjustedClose=true`;
+    `?range=${range}&interval=${interval}&includeAdjustedClose=true`;
 
   try {
     const upstream = await fetch(url, {
