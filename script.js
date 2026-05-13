@@ -368,13 +368,14 @@ function scoreRadius(s) {
   return 2;
 }
 
-// Long-range weekly SPY closes, used as the historical-alignment chart backdrop.
+// 10-year weekly SPY closes — used as the historical-alignment chart backdrop.
+// 10y is short enough that the 2020 COVID crash, 2022 bear, and recent drawdowns
+// each have visible drama; max range made everything look like a smooth line.
 async function fetchSpyHistory() {
-  // /api/quotes works on Vercel; in local dev fall through silently.
   const host = (typeof location !== "undefined" ? location.hostname : "") || "";
   if (host === "localhost" || host === "127.0.0.1" || host === "") return null;
   try {
-    const r = await fetch("/api/quotes?ticker=SPY&range=max&interval=1wk");
+    const r = await fetch("/api/quotes?ticker=SPY&range=10y&interval=1wk");
     if (!r.ok) return null;
     const j = await r.json();
     if (!j.rows || j.rows.length < 100) return null;
@@ -427,8 +428,11 @@ function renderAlignmentTable(data /* spyRows */) {
 
   // Notable alignments only — 4/5 and 5/5. These are the moments the
   // framework actually flagged; lower scores are scanned visually on the
-  // chart above.
-  const notable = data.filter(p => p.score >= 4);
+  // chart above. Sort newest first.
+  const notable = data
+    .filter(p => p.score >= 4)
+    .slice()
+    .sort((a, b) => b.date.localeCompare(a.date));
 
   const tbody = notable.map(r => {
     const scoreClass = `score-cell score-${r.score}`;
@@ -591,7 +595,7 @@ async function renderHistory(points, currentDate, currentScore) {
       },
       scales: {
         y: {
-          type: "logarithmic",
+          type: "linear",
           ticks: {
             color: "#8b949e",
             callback: (v) => `$${v}`
