@@ -760,21 +760,22 @@ function genMockMovers(sectorTicker, sectorGain) {
     .sort((a, b) => b.ytd - a.ytd);
 }
 
-function sparklineSVG(prices, color, width = 200, height = 28) {
+function sparklineSVG(prices, color, width = 200, height = 28, padLeft = 0, padRight = 0) {
   if (!prices || prices.length < 2) return "";
   const min = Math.min(...prices);
   const max = Math.max(...prices);
   const range = (max - min) || 1;
-  const stepX = width / (prices.length - 1);
+  const drawWidth = Math.max(1, width - padLeft - padRight);
+  const stepX = drawWidth / (prices.length - 1);
   const pad = 2;
   const usableH = height - pad * 2;
   const points = prices.map((p, i) => {
-    const x = (i * stepX).toFixed(1);
+    const x = (padLeft + i * stepX).toFixed(1);
     const y = (pad + usableH - ((p - min) / range) * usableH).toFixed(1);
     return `${x},${y}`;
   }).join(" ");
-  // Subtle area fill under the line
-  const areaPoints = `0,${height} ${points} ${width},${height}`;
+  // Subtle area fill under the line — start/end at the same x bounds as the line itself.
+  const areaPoints = `${padLeft},${height} ${points} ${width - padRight},${height}`;
   return `
     <svg class="sparkline" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">
       <polyline points="${areaPoints}" fill="${color}" fill-opacity="0.12" stroke="none" />
@@ -911,7 +912,7 @@ function renderSectorsDetail(d, evalResult) {
                       <td class="num md-cap">${formatMarketCap(cap)}</td>
                       <td class="num ${ytdPos ? "beat" : "miss"}">${ytdPos ? "+" : ""}${c.ytd.toFixed(1)}%</td>
                       <td class="num ${oneYPos ? "beat" : "miss"}">${oneYPos ? "+" : ""}${c.oneY.toFixed(1)}%</td>
-                      <td class="md-spark">${sparklineSVG(c.prices, sparkColor, 150, 28)}</td>
+                      <td class="md-spark">${sparklineSVG(c.prices, sparkColor, 150, 28, 22, 4)}</td>
                     </tr>`;
                 }).join("")}
               </tbody>

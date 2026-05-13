@@ -449,7 +449,7 @@ table.movers-detail tbody .md-cap {
   color: var(--text-dim);
 }
 table.movers-detail tbody .md-spark {
-  padding: 6px 10px;
+  padding: 6px 12px;
 }
 table.movers-detail tbody .md-spark .sparkline {
   width: 100%;
