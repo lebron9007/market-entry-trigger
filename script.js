@@ -917,7 +917,7 @@ function renderSectorsDetail(d, evalResult) {
                 }).join("")}
               </tbody>
             </table>
-            <div class="constituents-note">YTD &amp; 1-year price change · sorted by YTD · top 5 of ${SECTOR_CONSTITUENTS[ticker]?.length || 0} sampled constituents</div>
+            <div class="constituents-note">Top 5 by YTD among the ETF's ${SECTOR_CONSTITUENTS[ticker]?.length || 0} largest holdings · YTD &amp; 1-year price change · chart is 1-year</div>
           </div>
         `;
         wrap.dataset.loaded = "1";
@@ -1239,18 +1239,34 @@ async function fetchFRED_csv(seriesId) {
 }
 
 async function fetchFedSeries() {
-  // 1) Try public fredgraph.csv (no key, real-time).
+  // 1) Try the serverless proxy first (CORS-free, server-side FRED CSV).
+  const host = (typeof location !== "undefined" ? location.hostname : "") || "";
+  const proxyAvailable = host && host !== "localhost" && host !== "127.0.0.1";
+  if (proxyAvailable) {
+    try {
+      const resp = await fetch("/api/fed-rate");
+      if (resp.ok) {
+        const json = await resp.json();
+        if (json.upper?.length && json.lower?.length) {
+          return { upper: json.upper, lower: json.lower, sourceLabel: "FRED (proxy)" };
+        }
+      }
+    } catch (e) {
+      console.warn("FRED proxy failed, trying direct CSV:", e.message || e);
+    }
+  }
+  // 2) Try public fredgraph.csv from the browser (may or may not pass CORS).
   try {
     const [upper, lower] = await Promise.all([
       fetchFRED_csv("DFEDTARU"),
       fetchFRED_csv("DFEDTARL")
     ]);
     if (upper.length === 0 || lower.length === 0) throw new Error("empty");
-    return { upper, lower, sourceLabel: "FRED" };
+    return { upper, lower, sourceLabel: "FRED (direct)" };
   } catch (e) {
     console.warn("fredgraph.csv unavailable, trying data/fed.json:", e.message || e);
   }
-  // 2) Manual fallback file (FOMC-meeting granularity).
+  // 3) Manual fallback file (FOMC-meeting granularity).
   const resp = await fetch("data/fed.json");
   if (!resp.ok) throw new Error("data/fed.json missing");
   const local = await resp.json();
@@ -1286,6 +1302,33 @@ async function fetchFed_live() {
 }
 
 async function fetchMargin_live() {
+  // 1) Try the serverless proxy (live FINRA scrape).
+  const host = (typeof location !== "undefined" ? location.hostname : "") || "";
+  const proxyAvailable = host && host !== "localhost" && host !== "127.0.0.1";
+  if (proxyAvailable) {
+    try {
+      const resp = await fetch("/api/finra-margin");
+      if (resp.ok) {
+        const json = await resp.json();
+        const h = json.history || [];
+        if (h.length >= 2) {
+          const latest = h[h.length - 1];
+          const prior  = h[h.length - 2];
+          return {
+            asOf: latest.month,
+            unitsLabel: json.unitsLabel || "$B",
+            history: h,
+            latest: latest.value,
+            prior: prior.value,
+            source: "live"
+          };
+        }
+      }
+    } catch (e) {
+      console.warn("FINRA proxy failed, falling back to local JSON:", e.message || e);
+    }
+  }
+  // 2) Manual JSON fallback (kept in repo as last resort).
   const resp = await fetch("data/finra_margin.json");
   if (!resp.ok) throw new Error(`finra_margin.json HTTP ${resp.status}`);
   const json = await resp.json();
