@@ -352,11 +352,13 @@ function renderScore(score) {
 // ============================================================
 // Subdued sequential blue palette — peak alignment is bright accent blue,
 // weak readings fade to grey. Less alarming than red/green.
+// Signal-strength palette — sequential from strong (green) through mixed
+// (amber) to weak (grey). Distinct hues at a glance without being loud.
 function colorForScore(s) {
-  if (s >= 5) return "#58a6ff";
-  if (s >= 4) return "rgba(88, 166, 255, 0.65)";
-  if (s >= 3) return "rgba(88, 166, 255, 0.35)";
-  return "rgba(139, 148, 158, 0.35)";
+  if (s >= 5) return "#2ea043";                  // green
+  if (s >= 4) return "#65a30d";                  // lime
+  if (s >= 3) return "#d29922";                  // amber
+  return "rgba(139, 148, 158, 0.50)";            // muted grey
 }
 
 function scoreRadius(s) {
@@ -386,17 +388,98 @@ function nearestSpyAtDate(spyRows, targetIso) {
   // Binary-search nearest weekly close to a given month string. We trim the
   // alignment label to YYYY-MM-01 and find the closest SPY row by timestamp.
   const target = new Date(`${targetIso}-01`).getTime();
+  return nearestSpyByMs(spyRows, target);
+}
+
+function nearestSpyByMs(spyRows, targetMs) {
   let lo = 0, hi = spyRows.length - 1;
   while (lo < hi) {
     const mid = (lo + hi) >>> 1;
-    if (new Date(spyRows[mid].date).getTime() < target) lo = mid + 1;
+    if (new Date(spyRows[mid].date).getTime() < targetMs) lo = mid + 1;
     else hi = mid;
   }
   const a = spyRows[Math.max(0, lo - 1)];
   const b = spyRows[lo];
   if (!a) return b;
   if (!b) return a;
-  return Math.abs(new Date(a.date) - target) < Math.abs(new Date(b.date) - target) ? a : b;
+  return Math.abs(new Date(a.date).getTime() - targetMs) <
+         Math.abs(new Date(b.date).getTime() - targetMs)
+    ? a : b;
+}
+
+function forwardReturn12M(spyRows, alignIso) {
+  const startNearest = nearestSpyAtDate(spyRows, alignIso);
+  if (!startNearest) return { start: null, end: null, pct: null, status: "missing" };
+  const startMs = new Date(startNearest.date).getTime();
+  const endMs = new Date(`${alignIso}-01`).getTime() + 365 * 24 * 60 * 60 * 1000;
+  if (endMs > Date.now()) {
+    return { start: startNearest.close, end: null, pct: null, status: "pending" };
+  }
+  const endNearest = nearestSpyByMs(spyRows, endMs);
+  if (!endNearest) return { start: startNearest.close, end: null, pct: null, status: "missing" };
+  const pct = ((endNearest.close - startNearest.close) / startNearest.close) * 100;
+  return { start: startNearest.close, end: endNearest.close, pct, status: "ok" };
+}
+
+function renderAlignmentTable(data, spyRows) {
+  const wrap = document.getElementById("history-table");
+  if (!wrap) return;
+
+  const rows = data.map(p => {
+    const fr = forwardReturn12M(spyRows, p.date);
+    return { ...p, fr };
+  });
+
+  // Compute the validation summary across alignments scored 4+/5.
+  const notable = rows.filter(r => r.score >= 4 && r.fr.status === "ok");
+  const positives = notable.filter(r => r.fr.pct > 0).length;
+  const summary = notable.length
+    ? `Of <strong>${notable.length}</strong> historical alignments at 4+/5 with a full 12-month forward window, ` +
+      `<strong>${Math.round((positives / notable.length) * 100)}%</strong> produced positive returns ` +
+      `(avg <strong>${(notable.reduce((a, r) => a + r.fr.pct, 0) / notable.length).toFixed(1)}%</strong>).`
+    : "Not enough completed 12-month windows yet to compute summary statistics.";
+
+  const tbody = rows.map(r => {
+    const dateStr = r.date;
+    const scoreClass = `score-cell score-${r.score}`;
+    const spyStr = r.fr.start ? `$${r.fr.start.toFixed(2)}` : "—";
+    let endStr = "—", retStr = "—", retClass = "";
+    if (r.fr.status === "ok") {
+      endStr = `$${r.fr.end.toFixed(2)}`;
+      retStr = `${r.fr.pct >= 0 ? "+" : ""}${r.fr.pct.toFixed(1)}%`;
+      retClass = r.fr.pct >= 0 ? "beat" : "miss";
+    } else if (r.fr.status === "pending") {
+      endStr = "pending";
+    }
+    return `
+      <tr>
+        <td class="mono">${dateStr}</td>
+        <td class="num ${scoreClass}">${r.score}/5</td>
+        <td class="note">${r.note || ""}</td>
+        <td class="num">${spyStr}</td>
+        <td class="num">${endStr}</td>
+        <td class="num ${retClass}">${retStr}</td>
+      </tr>`;
+  }).join("");
+
+  wrap.innerHTML = `
+    <p class="history-summary">${summary}</p>
+    <div class="history-table-scroll">
+      <table class="data history-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th class="num">Score</th>
+            <th>Event</th>
+            <th class="num">SPY</th>
+            <th class="num">+12 mo</th>
+            <th class="num">Return</th>
+          </tr>
+        </thead>
+        <tbody>${tbody}</tbody>
+      </table>
+    </div>
+  `;
 }
 
 async function renderHistory(points, currentDate, currentScore) {
@@ -465,6 +548,8 @@ async function renderHistory(points, currentDate, currentScore) {
       alignDate: p.date
     };
   }).filter(Boolean);
+
+  renderAlignmentTable(data, spyClipped);
 
   new Chart(canvas, {
     data: {

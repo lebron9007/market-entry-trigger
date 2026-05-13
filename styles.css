@@ -419,10 +419,10 @@ html, body {
   width: 10px; height: 10px; border-radius: 50%;
   display: inline-block;
 }
-.dot-5 { background: #58a6ff; }
-.dot-4 { background: rgba(88, 166, 255, 0.65); }
-.dot-3 { background: rgba(88, 166, 255, 0.35); }
-.dot-low { background: rgba(139, 148, 158, 0.35); }
+.dot-5 { background: #2ea043; }
+.dot-4 { background: #65a30d; }
+.dot-3 { background: #d29922; }
+.dot-low { background: rgba(139, 148, 158, 0.50); }
 .legend-line {
   display: inline-block;
   width: 18px;
@@ -441,6 +441,54 @@ html, body {
   font-size: 12px;
   color: var(--text-dim);
 }
+
+/* Alignment detail table — listed below the SPY chart so users can
+   scan the numbers and validate the framework against forward returns. */
+.history-table-wrap {
+  margin-top: 18px;
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+}
+.history-summary {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.5;
+}
+.history-summary strong { color: var(--text); font-weight: 600; }
+.history-table-scroll {
+  max-height: 320px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+table.history-table {
+  font-size: 12px;
+}
+table.history-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+  z-index: 1;
+}
+table.history-table td {
+  padding: 8px 12px;
+}
+table.history-table td.mono {
+  font-family: var(--mono);
+  color: var(--text-dim);
+}
+table.history-table td.note {
+  color: var(--text-dim);
+  font-style: italic;
+}
+table.history-table td.score-cell { font-weight: 600; }
+table.history-table td.score-5 { color: #2ea043; }
+table.history-table td.score-4 { color: #84cc16; }
+table.history-table td.score-3 { color: #d29922; }
+table.history-table td.score-2,
+table.history-table td.score-1,
+table.history-table td.score-0 { color: var(--text-dim); }
 
 /* Detail panels */
 .detail {
