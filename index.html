@@ -92,31 +92,31 @@
           <article class="methodology-item">
             <h3>1. VIX &gt; 30</h3>
             <p class="rule">Trigger when CBOE VIX closes above 30.</p>
-            <p class="source"><strong>Source:</strong> <code>datasets/finance-vix</code> (CSV, ~15-min delay).</p>
+            <p class="source"><strong>Source:</strong> <a href="https://github.com/datasets/finance-vix" target="_blank" rel="noopener noreferrer">datasets/finance-vix</a> (a public CSV mirror of <a href="https://www.cboe.com/tradable_products/vix/" target="_blank" rel="noopener noreferrer">CBOE</a> VIX, ~15-min delay).</p>
             <p class="limitation"><strong>Limitation:</strong> A daily spike can occur for idiosyncratic reasons (single-stock events, earnings season). A sustained reading carries more signal than a one-day move.</p>
           </article>
           <article class="methodology-item">
             <h3>2. Fed rate trajectory</h3>
             <p class="rule">Trigger when no future-year FOMC dot-plot median sits above the current target rate.</p>
-            <p class="source"><strong>Source:</strong> Current target from FRED (DFEDTARU/DFEDTARL). Projections from FOMC's quarterly Summary of Economic Projections.</p>
+            <p class="source"><strong>Source:</strong> Current target from <a href="https://fred.stlouisfed.org/series/DFEDTARU" target="_blank" rel="noopener noreferrer">FRED DFEDTARU</a> / <a href="https://fred.stlouisfed.org/series/DFEDTARL" target="_blank" rel="noopener noreferrer">DFEDTARL</a>. Projections from FOMC's quarterly <a href="https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm" target="_blank" rel="noopener noreferrer">Summary of Economic Projections</a>.</p>
             <p class="limitation"><strong>Limitation:</strong> Rate updates 8&times;/year on FOMC dates; dot plot refreshes only 4&times;/year (Mar/Jun/Sep/Dec). Reflects FOMC participants' expectations, not market pricing.</p>
           </article>
           <article class="methodology-item">
             <h3>3. Margin debt decreasing</h3>
             <p class="rule">Trigger when FINRA monthly debit balances are lower than the prior month.</p>
-            <p class="source"><strong>Source:</strong> FINRA "Debit Balances in Customers' Securities Margin Accounts."</p>
+            <p class="source"><strong>Source:</strong> <a href="https://www.finra.org/rules-guidance/key-topics/margin-accounts/margin-statistics" target="_blank" rel="noopener noreferrer">FINRA</a> "Debit Balances in Customers' Securities Margin Accounts."</p>
             <p class="limitation"><strong>Limitation:</strong> Lagging indicator — FINRA publishes ~3 weeks after month-end. Monthly granularity misses intra-month deleveraging.</p>
           </article>
           <article class="methodology-item">
             <h3>4. Clear leading sector</h3>
             <p class="rule">Trigger when one sector ETF outperforms SPY by at least 3pp over 3 months <em>and</em> leads the runner-up by 3pp.</p>
-            <p class="source"><strong>Source:</strong> Yahoo Finance daily closes for SPY and 12 SPDR sector ETFs.</p>
+            <p class="source"><strong>Source:</strong> <a href="https://finance.yahoo.com/" target="_blank" rel="noopener noreferrer">Yahoo Finance</a> daily closes for SPY and 12 SPDR sector ETFs.</p>
             <p class="limitation"><strong>Limitation:</strong> 3-month window; momentum can reverse quickly. Identifies that capital is flowing somewhere — does not validate the underlying thesis.</p>
           </article>
           <article class="methodology-item">
             <h3>5. Leading sector earnings</h3>
             <p class="rule">Trigger when &ge;60% of the leading sector's top-10 constituents beat their consensus EPS estimate in the most recent quarter.</p>
-            <p class="source"><strong>Source:</strong> MarketBeat earnings tables, via <code>r.jina.ai</code>.</p>
+            <p class="source"><strong>Source:</strong> <a href="https://www.marketbeat.com/" target="_blank" rel="noopener noreferrer">MarketBeat</a> earnings tables, via <a href="https://jina.ai/reader/" target="_blank" rel="noopener noreferrer">r.jina.ai</a>.</p>
             <p class="limitation"><strong>Limitation:</strong> Quarterly cadence; constituents don't all report in the same quarter. Backward-looking — beating last quarter does not predict the next.</p>
           </article>
         </div>
@@ -141,7 +141,14 @@
     <section class="panel" id="panel-earnings"><div id="earnings-detail" class="detail"></div></section>
 
     <footer class="footer">
-      <span>Data sources: Yahoo Finance · datasets/finance-vix · FRED · FINRA · MarketBeat · Fed dot plot</span>
+      <span>Data sources:
+        <a href="https://finance.yahoo.com/" target="_blank" rel="noopener noreferrer">Yahoo Finance</a> ·
+        <a href="https://github.com/datasets/finance-vix" target="_blank" rel="noopener noreferrer">datasets/finance-vix</a> ·
+        <a href="https://fred.stlouisfed.org/" target="_blank" rel="noopener noreferrer">FRED</a> ·
+        <a href="https://www.finra.org/rules-guidance/key-topics/margin-accounts/margin-statistics" target="_blank" rel="noopener noreferrer">FINRA</a> ·
+        <a href="https://www.marketbeat.com/" target="_blank" rel="noopener noreferrer">MarketBeat</a> ·
+        <a href="https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm" target="_blank" rel="noopener noreferrer">Fed dot plot</a>
+      </span>
       <span id="data-mode">mock data</span>
     </footer>
   </main>

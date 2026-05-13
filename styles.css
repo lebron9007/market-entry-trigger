@@ -125,6 +125,7 @@ html, body {
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 22px 26px;
+  margin-top: 36px;       /* clear separation from the history chart above */
   margin-bottom: 24px;
 }
 .methodology-section .section-intro {
@@ -178,6 +179,20 @@ html, body {
 }
 .methodology-item strong { color: var(--text); font-weight: 600; }
 .methodology-item em { color: var(--text); font-style: normal; font-weight: 500; }
+.methodology-item a,
+.disclaimer a,
+.footer a {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px dotted rgba(88, 166, 255, 0.4);
+  transition: border-color 0.12s, color 0.12s;
+}
+.methodology-item a:hover,
+.disclaimer a:hover,
+.footer a:hover {
+  border-bottom-color: var(--accent);
+  color: #79b8ff;
+}
 
 /* Disclaimer block */
 .disclaimer {
