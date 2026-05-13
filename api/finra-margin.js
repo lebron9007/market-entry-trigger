@@ -51,17 +51,44 @@ function stripTags(s) {
 
 export default async function handler(req, res) {
   try {
+    // Full browser-like header set — FINRA's CDN (Akamai) rejects requests
+    // that look like obvious bots. The combination below has been observed
+    // to satisfy most bot-detection layers.
     const r = await fetch(FINRA_URL, {
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
           "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
-        Accept: "text/html,application/xhtml+xml,*/*",
-        "Accept-Language": "en-US,en;q=0.9"
-      }
+        Accept:
+          "text/html,application/xhtml+xml,application/xml;q=0.9," +
+          "image/avif,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Cache-Control": "no-cache",
+        Pragma: "no-cache",
+        "Sec-Ch-Ua":
+          '"Not/A)Brand";v="8", "Chromium";v="126", "Google Chrome";v="126"',
+        "Sec-Ch-Ua-Mobile": "?0",
+        "Sec-Ch-Ua-Platform": '"Windows"',
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
+        "Sec-Fetch-User": "?1",
+        "Upgrade-Insecure-Requests": "1"
+      },
+      redirect: "follow"
     });
     if (!r.ok) {
-      return res.status(502).json({ error: `FINRA upstream HTTP ${r.status}` });
+      // Capture a snippet of the body so we can tell whether we're seeing a
+      // CDN block page (Akamai/Cloudflare) vs an actual server error.
+      let snippet = "";
+      try {
+        const body = await r.text();
+        snippet = body.slice(0, 200).replace(/\s+/g, " ");
+      } catch (_) {}
+      return res.status(502).json({
+        error: `FINRA upstream HTTP ${r.status}`,
+        snippet
+      });
     }
     const html = await r.text();
 
