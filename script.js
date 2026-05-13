@@ -461,7 +461,7 @@ function renderFedDetail(d, evalResult) {
         <h2>Fed Trend ${statusPill(evalResult.status)}</h2>
         <div class="sub">Federal Funds target range and FOMC dot-plot projections.</div>
       </div>
-      <div class="updated">${d.history.length} historical observations</div>
+      <div class="updated">FRED DFEDTARU · projections from data/dotplot.json</div>
     </div>
     <div class="stat-row">
       <div class="stat"><div class="stat-label">Current target</div><div class="stat-value">${rangeStr}</div><div class="stat-sub">FOMC range (lower–upper)</div></div>
@@ -506,13 +506,36 @@ function drawFedTrajectoryChart(canvasId, history, projections) {
     projPoints.push({ date: `${last + 2}-12-31`, value: projections.long_run });
   }
 
-  const allDates = [...history.map(p => p.date), ...projPoints.slice(1).map(p => p.date)];
+  // Balance the window: past span == future span, with "today" at the
+  // chart's horizontal centre. This gives the historical and projected
+  // sections equal visual weight.
+  const todayMs        = new Date(lastHist.date).getTime();
+  const farthestProjMs = new Date(projPoints[projPoints.length - 1].date).getTime();
+  const futureSpanMs   = farthestProjMs - todayMs;
+  const histStartMs    = todayMs - futureSpanMs;
+  const xMin           = new Date(histStartMs);
+  const xMax           = new Date(farthestProjMs);
+
+  // Trim historical data to the balanced window.
+  const trimmedHistory = history.filter(
+    p => new Date(p.date).getTime() >= histStartMs
+  );
+  // Guarantee the anchor point (last hist) is present even if filtering
+  // would have excluded it at the window boundary.
+  if (
+    trimmedHistory.length === 0 ||
+    trimmedHistory[trimmedHistory.length - 1].date !== lastHist.date
+  ) {
+    trimmedHistory.push(lastHist);
+  }
+
+  const allDates = [...trimmedHistory.map(p => p.date), ...projPoints.slice(1).map(p => p.date)];
   const histValues = [
-    ...history.map(p => p.value),
+    ...trimmedHistory.map(p => p.value),
     ...projPoints.slice(1).map(() => null)
   ];
   const projValues = [
-    ...history.slice(0, -1).map(() => null),
+    ...trimmedHistory.slice(0, -1).map(() => null),
     lastHist.value,
     ...projPoints.slice(1).map(p => p.value)
   ];
@@ -592,8 +615,10 @@ function drawFedTrajectoryChart(canvasId, history, projections) {
           // year-end projection points (12/2026, 12/2027, …) get their own
           // ticks instead of being skipped over by index-based autoSkip.
           type: "time",
+          min: xMin,
+          max: xMax,
           time: {
-            unit: "month",
+            unit: "year",
             tooltipFormat: "MMM d, yyyy",
             displayFormats: { month: "MM/yyyy", year: "yyyy" }
           },
@@ -1305,7 +1330,10 @@ async function fetchFed_live() {
     projections,
     dotMedianYearEnd: ye,
     direction: dot.direction,
-    history: upper.slice(-180),
+    // Pass enough historical data (~7 years daily) so the trajectory chart
+    // can render a balanced past-vs-future window. drawFedTrajectoryChart
+    // trims this to whatever span matches the furthest projection.
+    history: upper.slice(-1800),
     source: "live"
   };
 }
