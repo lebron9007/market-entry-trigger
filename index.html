@@ -13,6 +13,15 @@
   <meta property="og:url" content="https://market-entry-trigger.vercel.app/" />
   <meta name="twitter:card" content="summary_large_image" />
 
+  <script>
+    // Apply stored theme before first paint to prevent flash of wrong theme.
+    (function () {
+      try {
+        var t = localStorage.getItem("met-theme");
+        if (t === "light") document.documentElement.setAttribute("data-theme", "light");
+      } catch (e) { /* localStorage unavailable — keep default dark */ }
+    })();
+  </script>
   <link rel="stylesheet" href="styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
@@ -22,7 +31,18 @@
     <header class="header">
       <div class="title-row">
         <h1>Market Entry Trigger</h1>
-        <div class="updated" id="last-updated">Loading…</div>
+        <div class="header-right">
+          <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle light / dark theme" title="Toggle theme">
+            <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/>
+              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+            </svg>
+            <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+            </svg>
+          </button>
+          <div class="updated" id="last-updated">Loading…</div>
+        </div>
       </div>
       <p class="subtitle">A quantitative framework for identifying high-probability market entry windows. Tracks five conditions whose historical alignment has preceded strong forward returns in U.S. equities.</p>
       <a class="credit-card" href="https://www.youtube.com/watch?v=QQRyTednY2w&amp;t=1000s" target="_blank" rel="noopener noreferrer" aria-label="Watch the inspiring video by Defiant Gatekeeper on YouTube">

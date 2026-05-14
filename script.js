@@ -1833,4 +1833,20 @@ function collapseExplanatoryOnMobile() {
 }
 collapseExplanatoryOnMobile();
 
+// Theme toggle — initial theme is applied by the inline script in <head>
+// (prevents FOUC). This wires the click handler that flips it.
+function initThemeToggle() {
+  const THEME_KEY = "met-theme";
+  const btn = document.getElementById("theme-toggle");
+  if (!btn) return;
+  btn.addEventListener("click", () => {
+    const cur = document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
+    const next = cur === "light" ? "dark" : "light";
+    if (next === "light") document.documentElement.setAttribute("data-theme", "light");
+    else document.documentElement.removeAttribute("data-theme");
+    try { localStorage.setItem(THEME_KEY, next); } catch (_) {}
+  });
+}
+initThemeToggle();
+
 main();
