@@ -1,19 +1,59 @@
 {
   "_comment": "Auto-updated by /api/finra-margin (FINRA via r.jina.ai). Manual edits are welcome and serve as fallback if the proxy fails — they'll be overwritten the next time the proxy successfully scrapes fresh data. Source: https://www.finra.org/rules-guidance/key-topics/margin-accounts/margin-statistics",
   "unitsLabel": "$B",
+  "asOf": "2026-04",
   "history": [
-    { "month": "2025-03", "value": 880.3 },
-    { "month": "2025-04", "value": 850.6 },
-    { "month": "2025-05", "value": 921.0 },
-    { "month": "2025-06", "value": 1008.0 },
-    { "month": "2025-07", "value": 1022.5 },
-    { "month": "2025-08", "value": 1059.7 },
-    { "month": "2025-09", "value": 1126.5 },
-    { "month": "2025-10", "value": 1183.7 },
-    { "month": "2025-11", "value": 1214.3 },
-    { "month": "2025-12", "value": 1225.6 },
-    { "month": "2026-01", "value": 1279.0 },
-    { "month": "2026-02", "value": 1253.2 },
-    { "month": "2026-03", "value": 1220.9 }
+    {
+      "month": "2025-04",
+      "value": 850.6
+    },
+    {
+      "month": "2025-05",
+      "value": 921
+    },
+    {
+      "month": "2025-06",
+      "value": 1008
+    },
+    {
+      "month": "2025-07",
+      "value": 1022.5
+    },
+    {
+      "month": "2025-08",
+      "value": 1059.7
+    },
+    {
+      "month": "2025-09",
+      "value": 1126.5
+    },
+    {
+      "month": "2025-10",
+      "value": 1183.7
+    },
+    {
+      "month": "2025-11",
+      "value": 1214.3
+    },
+    {
+      "month": "2025-12",
+      "value": 1225.6
+    },
+    {
+      "month": "2026-01",
+      "value": 1279
+    },
+    {
+      "month": "2026-02",
+      "value": 1253.2
+    },
+    {
+      "month": "2026-03",
+      "value": 1220.9
+    },
+    {
+      "month": "2026-04",
+      "value": 1304.3
+    }
   ]
 }
