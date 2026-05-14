@@ -297,9 +297,6 @@ function evalEarnings(d) {
 // ============================================================
 // Score & verdict
 // ============================================================
-function computeConfidence(score) {
-  return [5, 15, 30, 50, 70, 85][Math.max(0, Math.min(5, score))];
-}
 function verdictFor(score) {
   if (score === 5) return "All five conditions met. Historical base rate for positive 12-month forward returns: ~80–85%.";
   if (score === 4) return "Four conditions met. Strong setup, one short of full alignment.";
@@ -336,11 +333,26 @@ function renderCards(results) {
   });
 }
 
-function renderScore(score) {
+// Short labels for the trigger pills shown next to the score number.
+const PILL_LABELS = {
+  vix: "VIX",
+  fed: "Fed",
+  margin: "Margin",
+  sectors: "Sector",
+  earnings: "Earnings"
+};
+
+function renderScore(score, results) {
   document.getElementById("score-number").textContent = score;
-  const conf = computeConfidence(score);
-  document.getElementById("confidence-value").textContent = `${conf}%`;
-  document.getElementById("confidence-fill").style.width = `${conf}%`;
+
+  const pillsWrap = document.getElementById("trigger-pills");
+  if (pillsWrap && results) {
+    pillsWrap.innerHTML = results.map(r => {
+      const label = PILL_LABELS[r.tab] || r.title;
+      return `<span class="trigger-pill ${r.status}"><span class="pill-dot"></span>${label}</span>`;
+    }).join("");
+  }
+
   const verdictEl = document.getElementById("verdict");
   verdictEl.textContent = verdictFor(score);
   const tier = score >= 5 ? "5" : score >= 4 ? "4" : score >= 3 ? "3" : "low";
@@ -1794,7 +1806,7 @@ async function main() {
   ];
   const score = results.filter(r => r.pass).length;
   renderCards(results);
-  renderScore(score);
+  renderScore(score, results);
   renderVIXDetail(data.vix, results[0]);
   renderFedDetail(data.fed, results[1]);
   renderMarginDetail(data.margin, results[2]);
