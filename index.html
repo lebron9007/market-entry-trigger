@@ -25,12 +25,19 @@
         <div class="updated" id="last-updated">Loading…</div>
       </div>
       <p class="subtitle">A quantitative framework for identifying high-probability market entry windows. Tracks five conditions whose historical alignment has preceded strong forward returns in U.S. equities.</p>
-      <p class="credit">
-        Framework inspired by
-        <a href="https://www.youtube.com/@DefiantGatekeeper" target="_blank" rel="noopener noreferrer">Defiant Gatekeeper</a>'s video
-        <a href="https://www.youtube.com/watch?v=QQRyTednY2w&amp;t=1000s" target="_blank" rel="noopener noreferrer">"Easy way to make money with stocks"</a>
-        &mdash; watch for the full explanation of the five conditions.
-      </p>
+      <a class="credit-card" href="https://www.youtube.com/watch?v=QQRyTednY2w&amp;t=1000s" target="_blank" rel="noopener noreferrer" aria-label="Watch the inspiring video by Defiant Gatekeeper on YouTube">
+        <span class="credit-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <rect x="1.5" y="5" width="21" height="14" rx="3.5" fill="#FF0000"/>
+            <path d="M10 9.2v5.6l5-2.8z" fill="#fff"/>
+          </svg>
+        </span>
+        <span class="credit-body">
+          <span class="credit-line-1">Inspired by <strong>Defiant Gatekeeper</strong></span>
+          <span class="credit-line-2">"Easy way to make money with stocks" — watch on YouTube</span>
+        </span>
+        <span class="credit-arrow" aria-hidden="true">→</span>
+      </a>
     </header>
 
     <nav class="tabs" id="tabs">
@@ -59,15 +66,17 @@
         </div>
       </div>
 
-      <section class="intro-section">
-        <h2>How this works</h2>
-        <p>
-          Each indicator below is evaluated independently against a fixed rule. When all five conditions are met simultaneously — a rare event — the historical base rate for positive 12-month forward returns in the S&amp;P 500 is approximately <strong>80&ndash;85%</strong>, based on retrospective analysis of major historical alignments (e.g.&nbsp;2008&ndash;2009, March&nbsp;2020).
-        </p>
-        <p class="intro-note">
-          This dashboard surfaces the framework's current state. It does not make recommendations and is not investment advice.
-        </p>
-      </section>
+      <details class="collapsible intro-section" open>
+        <summary><span class="collapsible-label">How this works</span><span class="collapsible-chev" aria-hidden="true">▾</span></summary>
+        <div class="collapsible-body">
+          <p>
+            Each indicator below is evaluated independently against a fixed rule. When all five conditions are met simultaneously — a rare event — the historical base rate for positive 12-month forward returns in the S&amp;P 500 is approximately <strong>80&ndash;85%</strong>, based on retrospective analysis of major historical alignments (e.g.&nbsp;2008&ndash;2009, March&nbsp;2020).
+          </p>
+          <p class="intro-note">
+            This dashboard surfaces the framework's current state. It does not make recommendations and is not investment advice.
+          </p>
+        </div>
+      </details>
 
       <div class="cards" id="cards">
         <div class="card skeleton"><div class="sk sk-title"></div><div class="sk sk-value"></div><div class="sk sk-line"></div><div class="sk sk-line sk-line-narrow"></div></div>
@@ -93,9 +102,9 @@
         <div class="history-table-wrap" id="history-table"></div>
       </div>
 
-      <section class="methodology-section">
-        <h2>The five conditions</h2>
-        <p class="section-intro">Each indicator's rule, data source, and known limitations.</p>
+      <details class="collapsible methodology-section" open>
+        <summary><span class="collapsible-label">The five conditions</span><span class="collapsible-chev" aria-hidden="true">▾</span></summary>
+        <p class="section-intro">Each indicator's rule and known limitations.</p>
         <div class="methodology-grid">
           <article class="methodology-item">
             <h3>1. VIX &gt; 30</h3>
@@ -123,13 +132,15 @@
             <p class="limitation"><strong>Limitation:</strong> Quarterly cadence; constituents don't all report in the same quarter. Backward-looking — beating last quarter does not predict the next.</p>
           </article>
         </div>
-      </section>
+      </details>
 
-      <section class="disclaimer">
-        <h3>Disclaimers</h3>
-        <p>This dashboard is provided for informational and educational purposes only and does not constitute investment, legal, or tax advice. Past performance is not indicative of future results. The 80&ndash;85% historical base rate is an observation drawn from a small number of historical alignments and should not be interpreted as a probability for any specific future period.</p>
-        <p>All data is sourced from public APIs and may contain inaccuracies, lags, or scraping artifacts. Always verify against primary sources before making investment decisions. No warranty is made as to accuracy, completeness, or fitness for any particular purpose.</p>
-      </section>
+      <details class="collapsible disclaimer" open>
+        <summary><span class="collapsible-label">Disclaimers</span><span class="collapsible-chev" aria-hidden="true">▾</span></summary>
+        <div class="collapsible-body">
+          <p>This dashboard is provided for informational and educational purposes only and does not constitute investment, legal, or tax advice. Past performance is not indicative of future results. The 80&ndash;85% historical base rate is an observation drawn from a small number of historical alignments and should not be interpreted as a probability for any specific future period.</p>
+          <p>All data is sourced from public APIs and may contain inaccuracies, lags, or scraping artifacts. Always verify against primary sources before making investment decisions. No warranty is made as to accuracy, completeness, or fitness for any particular purpose.</p>
+        </div>
+      </details>
     </section>
 
     <!-- VIX detail -->

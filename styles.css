@@ -52,21 +52,59 @@ html, body {
   margin: 6px 0 0;
   font-size: 14px;
 }
-.credit {
-  margin: 8px 0 0;
-  font-size: 13px;
-  color: var(--text-dim);
-  line-height: 1.5;
-}
-.credit a {
-  color: var(--accent);
+/* Credit card — interactive YouTube-style attribution */
+.credit-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 10px 14px 10px 12px;
+  background: rgba(255, 0, 0, 0.05);
+  border: 1px solid rgba(255, 0, 0, 0.20);
+  border-radius: 10px;
   text-decoration: none;
-  border-bottom: 1px dotted rgba(88, 166, 255, 0.4);
-  transition: border-color 0.12s, color 0.12s;
+  color: var(--text);
+  transition: background 0.18s, border-color 0.18s, transform 0.18s;
+  max-width: 100%;
 }
-.credit a:hover {
-  border-bottom-color: var(--accent);
-  color: #79b8ff;
+.credit-card:hover {
+  background: rgba(255, 0, 0, 0.10);
+  border-color: rgba(255, 0, 0, 0.45);
+  transform: translateY(-1px);
+}
+.credit-icon {
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.credit-icon svg { width: 100%; height: 100%; display: block; }
+.credit-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.credit-line-1 { font-size: 13px; color: var(--text); }
+.credit-line-1 strong { font-weight: 600; }
+.credit-line-2 {
+  font-size: 11px;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.credit-arrow {
+  color: var(--text-dim);
+  font-size: 16px;
+  flex-shrink: 0;
+  transition: transform 0.15s, color 0.15s;
+}
+.credit-card:hover .credit-arrow {
+  color: var(--text);
+  transform: translateX(3px);
 }
 .updated {
   font-family: var(--mono);
@@ -103,14 +141,42 @@ html, body {
 .panel { display: none; }
 .panel.active { display: block; }
 
-/* Intro section — explains the framework */
-.intro-section {
+/* Collapsible sections — intro, methodology, disclaimer */
+.collapsible {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 22px 26px;
+  padding: 18px 26px;
   margin-bottom: 24px;
 }
+.collapsible > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  user-select: none;
+}
+.collapsible > summary::-webkit-details-marker { display: none; }
+.collapsible > summary::marker { content: ""; }
+.collapsible-chev {
+  font-size: 14px;
+  transition: transform 0.18s;
+  color: var(--text-dim);
+}
+.collapsible[open] > summary .collapsible-chev { transform: rotate(180deg); }
+.collapsible > summary:hover .collapsible-chev,
+.collapsible > summary:hover .collapsible-label { color: var(--text); }
+.collapsible-body { margin-top: 14px; }
+.collapsible[open] .section-intro { margin-top: 14px; }
+
+/* Intro-specific text styles */
 .intro-section h2,
 .methodology-section h2 {
   margin: 0 0 12px;
@@ -210,21 +276,7 @@ html, body {
   color: #79b8ff;
 }
 
-/* Disclaimer block */
-.disclaimer {
-  background: transparent;
-  border-top: 1px solid var(--border);
-  padding: 18px 4px 4px;
-  margin-bottom: 8px;
-}
-.disclaimer h3 {
-  margin: 0 0 10px;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-dim);
-  font-weight: 600;
-}
+/* Disclaimer body — text styling inside the collapsible. */
 .disclaimer p {
   margin: 6px 0;
   font-size: 12px;
@@ -763,6 +815,14 @@ table.data td.miss { color: var(--red); }
   .container { padding: 20px 14px 48px; }
   .header h1 { font-size: 22px; }
   .subtitle { font-size: 13px; }
+
+  /* Collapsible panels — tighter padding when collapsed */
+  .collapsible { padding: 14px 18px; }
+  .collapsible > summary { font-size: 11px; }
+
+  /* Credit card sits flush, allows the second line to wrap */
+  .credit-card { width: 100%; box-sizing: border-box; }
+  .credit-line-2 { white-space: normal; line-height: 1.4; }
 
   /* Score panel: stack vertically */
   .score-panel { grid-template-columns: 1fr; gap: 16px; padding: 20px; }

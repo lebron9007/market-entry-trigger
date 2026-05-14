@@ -1813,4 +1813,12 @@ async function main() {
   }
 }
 
+// On phones, default-collapse the explanatory sections so the dashboard
+// surfaces score/cards/chart first. Users can tap to expand each block.
+function collapseExplanatoryOnMobile() {
+  if (!window.matchMedia("(max-width: 768px)").matches) return;
+  document.querySelectorAll("details.collapsible").forEach(d => d.removeAttribute("open"));
+}
+collapseExplanatoryOnMobile();
+
 main();
