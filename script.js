@@ -273,13 +273,16 @@ function evalMargin(d) {
 }
 
 function evalLeading(d) {
-  const status = d.decisive ? "green" : d.relStrength3M > 3 ? "yellow" : "red";
+  // Trigger when a sector clearly outperforms the S&P 500 (>=3pp over 3 months).
+  // No runner-up comparison needed — a clear outperformer is the signal.
+  const lead = d.relStrength3M;
+  const status = lead >= 3 ? "green" : lead >= 1 ? "yellow" : "red";
   return {
     title: "Leading Sector", tab: "sectors",
     pass: status === "green", status,
     value: d.topTicker,
-    takeaway: `${d.topName} ${d.relStrength3M >= 0 ? "+" : ""}${d.relStrength3M.toFixed(1)}% vs SPY (3M).`,
-    rule: "Trigger when one sector decisively outperforms (lead ≥3pp over runner-up)",
+    takeaway: `${d.topName} ${lead >= 0 ? "+" : ""}${lead.toFixed(1)}% vs SPY (3M).`,
+    rule: "Trigger when a sector clearly outperforms the S&P 500 (≥3pp over 3 months)",
     source: d.source
   };
 }
@@ -1132,7 +1135,7 @@ function renderSectorsDetail(d, evalResult) {
       <div class="stat"><div class="stat-label">Leader</div><div class="stat-value">${d.topTicker}</div><div class="stat-sub">${d.topName}</div></div>
       <div class="stat"><div class="stat-label">3M Return</div><div class="stat-value">${d.absReturn3M >= 0 ? "+" : ""}${d.absReturn3M.toFixed(1)}%</div><div class="stat-sub">absolute</div></div>
       <div class="stat"><div class="stat-label">vs SPY</div><div class="stat-value">${d.relStrength3M >= 0 ? "+" : ""}${d.relStrength3M.toFixed(1)}pp</div><div class="stat-sub">relative strength</div></div>
-      <div class="stat"><div class="stat-label">Lead margin</div><div class="stat-value">${(d.relStrength3M - d.runnerUp.relStrength3M).toFixed(1)}pp</div><div class="stat-sub">${d.decisive ? "decisive" : "not decisive"} · vs ${d.runnerUp.ticker}</div></div>
+      <div class="stat"><div class="stat-label">Status</div><div class="stat-value">${d.relStrength3M >= 3 ? "Clear" : "—"}</div><div class="stat-sub">${d.relStrength3M >= 3 ? "outperformer (≥3pp)" : "needs ≥3pp vs S&P"}</div></div>
     </div>
     <div class="detail-section">
       <h3>All sector ETFs ranked — click to expand</h3>
@@ -1157,7 +1160,7 @@ function renderSectorsDetail(d, evalResult) {
       </table>
     </div>
     <div class="rule-box">
-      <strong>Rule:</strong> Trigger when one sector outperforms SPY by ≥3pp more than the runner-up. Clear thematic leadership (Mag 7 in 2025, semis in 2026) signals institutional capital is flowing into a defensible narrative.
+      <strong>Rule:</strong> Trigger when a sector clearly outperforms the S&P 500 — a 3-month relative strength of ≥3pp. A clear outperformer (Mag 7 in 2025, semis in 2026) signals institutional capital is flowing into a defensible theme; the Earnings condition then confirms those outperformers are backed by EPS beats.
     </div>
   `;
 
@@ -1738,7 +1741,7 @@ async function fetchLeading_live() {
     relStrength3M: top.relStrength3M,
     spy3M: spy,
     runnerUp: { ticker: second.ticker, name: second.name, absReturn3M: second.absReturn3M, relStrength3M: second.relStrength3M },
-    decisive: (top.relStrength3M - second.relStrength3M) >= 3,
+    decisive: top.relStrength3M >= 3,   // clear outperformer vs S&P 500
     allRanked,
     source: "live"
   };

@@ -158,13 +158,13 @@ def main():
         rs.sort(key=lambda x: x[1], reverse=True)
         decisive = False
         lead_name = None
-        if len(rs) >= 2:
-            top, runner = rs[0], rs[1]
-            # Match the live dashboard rule: a growth sector leads the runner-up
-            # by >=3pp of relative strength. (We restrict the candidate set to
-            # growth/cyclical sectors above, faithful to the framework's
-            # "thematic engine" intent.)
-            decisive = (top[1] - runner[1]) >= 0.03
+        if rs:
+            top = rs[0]
+            # Match the live dashboard rule: a growth sector clearly outperforms
+            # the S&P 500 by >=3pp over 3 months. No runner-up gap required —
+            # a clear outperformer is the signal. (Candidate set is restricted
+            # to growth/cyclical sectors, faithful to the "thematic engine" intent.)
+            decisive = top[1] >= 0.03
             if decisive:
                 lead_name = SECTOR_NAMES.get(top[0], top[0])
         s_sector = decisive

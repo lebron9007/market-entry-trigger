@@ -13,8 +13,13 @@
     },
     {
       "date": "2007-07",
-      "score": 1,
+      "score": 2,
       "note": ""
+    },
+    {
+      "date": "2007-08",
+      "score": 4,
+      "note": "VIX peak 31 \u00b7 Semiconductors leading"
     },
     {
       "date": "2007-10",
@@ -27,6 +32,11 @@
       "note": ""
     },
     {
+      "date": "2008-03",
+      "score": 5,
+      "note": "VIX peak 32 \u00b7 Industrials leading"
+    },
+    {
       "date": "2008-04",
       "score": 3,
       "note": ""
@@ -37,14 +47,19 @@
       "note": ""
     },
     {
+      "date": "2008-09",
+      "score": 5,
+      "note": "VIX peak 47 \u00b7 Financials leading"
+    },
+    {
       "date": "2008-10",
       "score": 5,
       "note": "GFC crash \u00b7 VIX peak 80 \u00b7 Consumer Disc. leading"
     },
     {
       "date": "2009-01",
-      "score": 4,
-      "note": "VIX peak 57 \u00b7 Technology leading"
+      "score": 2,
+      "note": ""
     },
     {
       "date": "2009-02",
@@ -58,8 +73,8 @@
     },
     {
       "date": "2009-04",
-      "score": 2,
-      "note": ""
+      "score": 4,
+      "note": "VIX peak 42 \u00b7 Semiconductors leading"
     },
     {
       "date": "2009-05",
@@ -73,23 +88,28 @@
     },
     {
       "date": "2009-07",
-      "score": 2,
-      "note": ""
+      "score": 4,
+      "note": "VIX peak 31 \u00b7 Semiconductors leading"
     },
     {
       "date": "2009-10",
-      "score": 2,
-      "note": ""
+      "score": 4,
+      "note": "VIX peak 31 \u00b7 Financials leading"
     },
     {
       "date": "2010-01",
-      "score": 1,
+      "score": 2,
       "note": ""
     },
     {
       "date": "2010-04",
-      "score": 1,
+      "score": 2,
       "note": ""
+    },
+    {
+      "date": "2010-05",
+      "score": 4,
+      "note": "VIX peak 46 \u00b7 Consumer Disc. leading"
     },
     {
       "date": "2010-06",
@@ -103,7 +123,7 @@
     },
     {
       "date": "2010-10",
-      "score": 1,
+      "score": 2,
       "note": ""
     },
     {
@@ -113,7 +133,7 @@
     },
     {
       "date": "2011-04",
-      "score": 1,
+      "score": 2,
       "note": ""
     },
     {
@@ -128,8 +148,8 @@
     },
     {
       "date": "2011-10",
-      "score": 2,
-      "note": ""
+      "score": 4,
+      "note": "VIX peak 45 \u00b7 Technology leading"
     },
     {
       "date": "2011-12",
@@ -138,12 +158,12 @@
     },
     {
       "date": "2012-01",
-      "score": 1,
+      "score": 2,
       "note": ""
     },
     {
       "date": "2012-04",
-      "score": 1,
+      "score": 2,
       "note": ""
     },
     {
@@ -153,12 +173,12 @@
     },
     {
       "date": "2012-10",
-      "score": 1,
+      "score": 2,
       "note": ""
     },
     {
       "date": "2013-01",
-      "score": 1,
+      "score": 2,
       "note": ""
     },
     {
@@ -168,12 +188,12 @@
     },
     {
       "date": "2013-07",
-      "score": 1,
+      "score": 2,
       "note": ""
     },
     {
       "date": "2013-10",
-      "score": 1,
+      "score": 2,
       "note": ""
     },
     {
@@ -188,7 +208,7 @@
     },
     {
       "date": "2014-07",
-      "score": 1,
+      "score": 2,
       "note": ""
     },
     {
@@ -198,17 +218,17 @@
     },
     {
       "date": "2015-01",
-      "score": 1,
+      "score": 2,
       "note": ""
     },
     {
       "date": "2015-04",
-      "score": 1,
+      "score": 2,
       "note": ""
     },
     {
       "date": "2015-07",
-      "score": 1,
+      "score": 2,
       "note": ""
     },
     {
@@ -217,8 +237,13 @@
       "note": "VIX peak 41 \u00b7 Consumer Disc. leading"
     },
     {
+      "date": "2015-09",
+      "score": 4,
+      "note": "VIX peak 31 \u00b7 Consumer Disc. leading"
+    },
+    {
       "date": "2015-10",
-      "score": 1,
+      "score": 2,
       "note": ""
     },
     {
@@ -248,12 +273,12 @@
     },
     {
       "date": "2017-04",
-      "score": 0,
+      "score": 1,
       "note": ""
     },
     {
       "date": "2017-07",
-      "score": 0,
+      "score": 1,
       "note": ""
     },
     {
@@ -278,17 +303,17 @@
     },
     {
       "date": "2018-10",
-      "score": 1,
-      "note": ""
-    },
-    {
-      "date": "2019-01",
       "score": 0,
       "note": ""
     },
     {
-      "date": "2019-04",
+      "date": "2019-01",
       "score": 1,
+      "note": ""
+    },
+    {
+      "date": "2019-04",
+      "score": 2,
       "note": ""
     },
     {
@@ -307,14 +332,19 @@
       "note": ""
     },
     {
+      "date": "2020-02",
+      "score": 4,
+      "note": "VIX peak 40 \u00b7 Technology leading"
+    },
+    {
       "date": "2020-03",
       "score": 5,
       "note": "COVID crash \u00b7 VIX peak 83 \u00b7 Technology leading"
     },
     {
       "date": "2020-04",
-      "score": 2,
-      "note": ""
+      "score": 4,
+      "note": "VIX peak 57 \u00b7 Semiconductors leading"
     },
     {
       "date": "2020-05",
@@ -322,14 +352,24 @@
       "note": "VIX peak 37 \u00b7 Technology leading"
     },
     {
+      "date": "2020-06",
+      "score": 4,
+      "note": "VIX peak 41 \u00b7 Communications leading"
+    },
+    {
       "date": "2020-07",
       "score": 4,
       "note": "VIX peak 32 \u00b7 Semiconductors leading"
     },
     {
+      "date": "2020-09",
+      "score": 4,
+      "note": "VIX peak 34 \u00b7 Consumer Disc. leading"
+    },
+    {
       "date": "2020-10",
-      "score": 2,
-      "note": ""
+      "score": 4,
+      "note": "VIX peak 40 \u00b7 Industrials leading"
     },
     {
       "date": "2020-11",
@@ -342,18 +382,23 @@
       "note": "VIX peak 37 \u00b7 Semiconductors leading"
     },
     {
+      "date": "2021-02",
+      "score": 4,
+      "note": "VIX peak 30 \u00b7 Financials leading"
+    },
+    {
       "date": "2021-04",
       "score": 2,
       "note": ""
     },
     {
       "date": "2021-07",
-      "score": 1,
+      "score": 2,
       "note": ""
     },
     {
       "date": "2021-10",
-      "score": 1,
+      "score": 2,
       "note": ""
     },
     {
@@ -367,13 +412,18 @@
       "note": ""
     },
     {
-      "date": "2022-04",
+      "date": "2022-02",
       "score": 4,
-      "note": "VIX peak 34 \u00b7 Industrials leading"
+      "note": "VIX peak 31 \u00b7 Financials leading"
+    },
+    {
+      "date": "2022-04",
+      "score": 2,
+      "note": ""
     },
     {
       "date": "2022-07",
-      "score": 0,
+      "score": 1,
       "note": ""
     },
     {
@@ -383,12 +433,12 @@
     },
     {
       "date": "2022-10",
-      "score": 1,
+      "score": 3,
       "note": ""
     },
     {
       "date": "2023-01",
-      "score": 0,
+      "score": 1,
       "note": ""
     },
     {
@@ -422,13 +472,8 @@
       "note": ""
     },
     {
-      "date": "2024-08",
-      "score": 4,
-      "note": "VIX peak 39 \u00b7 Financials leading"
-    },
-    {
       "date": "2024-10",
-      "score": 1,
+      "score": 2,
       "note": ""
     },
     {
@@ -438,8 +483,8 @@
     },
     {
       "date": "2025-04",
-      "score": 2,
-      "note": ""
+      "score": 4,
+      "note": "VIX peak 52 \u00b7 Communications leading"
     },
     {
       "date": "2025-07",
@@ -455,6 +500,11 @@
       "date": "2026-01",
       "score": 2,
       "note": ""
+    },
+    {
+      "date": "2026-03",
+      "score": 5,
+      "note": "VIX peak 31 \u00b7 Semiconductors leading"
     },
     {
       "date": "2026-04",
