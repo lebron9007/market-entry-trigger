@@ -1565,7 +1565,12 @@ async function fetchFedSeries() {
       if (resp.ok) {
         const json = await resp.json();
         if (json.upper?.length && json.lower?.length) {
-          return { upper: json.upper, lower: json.lower, sourceLabel: "FRED (proxy)" };
+          return {
+            upper: json.upper,
+            lower: json.lower,
+            projections: json.projections && Object.keys(json.projections).length ? json.projections : null,
+            sourceLabel: "FRED (proxy)"
+          };
         }
       }
     } catch (e) {
@@ -1594,16 +1599,29 @@ async function fetchFedSeries() {
 }
 
 async function fetchFed_live() {
-  const { upper, lower } = await fetchFedSeries();
+  const fed = await fetchFedSeries();
+  const { upper, lower } = fed;
   const last     = upper[upper.length - 1];
   const lastLow  = lower[lower.length - 1] || last;
   const sixMo    = upper.slice(-180);
   const sixMoMA  = sixMo.reduce((a, p) => a + p.value, 0) / sixMo.length;
 
-  const dot = await fetch("data/dotplot.json").then(r => r.json());
-  const projections = dot.projections || {};
-  // Backwards-compat: derive next-year median if projections missing.
-  const ye = projections[String(new Date().getFullYear())] ?? dot.median_projection_year_end ?? last.value;
+  // Prefer live dot-plot medians from the FRED proxy (FEDTARMD/FEDTARMDLR).
+  // Fall back to the manually maintained data/dotplot.json if absent.
+  let projections, direction;
+  if (fed.projections) {
+    projections = fed.projections;
+    const midpoint = (last.value + lastLow.value) / 2;
+    const vals = Object.values(projections).filter(v => typeof v === "number");
+    const anyHigher = vals.some(v => v > midpoint + 0.10);
+    const anyLower  = vals.some(v => v < midpoint - 0.10);
+    direction = anyHigher ? "up" : anyLower ? "down" : "flat";
+  } else {
+    const dot = await fetch("data/dotplot.json").then(r => r.json());
+    projections = dot.projections || {};
+    direction = dot.direction;
+  }
+  const ye = projections[String(new Date().getFullYear())] ?? last.value;
 
   return {
     current: last.value,
@@ -1612,7 +1630,7 @@ async function fetchFed_live() {
     sixMoMA,
     projections,
     dotMedianYearEnd: ye,
-    direction: dot.direction,
+    direction,
     // Pass enough historical data (~7 years daily) so the trajectory chart
     // can render a balanced past-vs-future window. drawFedTrajectoryChart
     // trims this to whatever span matches the furthest projection.
