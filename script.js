@@ -499,7 +499,7 @@ async function renderHistory(points, currentDate, currentScore) {
     ? `Last 5/5 alignment: ${peaks[peaks.length - 1]}. Prior peaks: ${peaks.slice(0, -1).join(", ") || "none"}.`
     : "No 5/5 alignments in this window.";
   document.getElementById("history-note").textContent =
-    `${peakNote} · Pre-2026 scores are representative estimates based on contemporaneous reports of VIX, Fed policy, margin debt, leading sectors, and earnings — not back-computed from live APIs.`;
+    `${peakNote} · Historical scores: VIX, Fed rate, and sector leadership computed from real data (CBOE VIX, FRED, sector-ETF prices). Margin debt and earnings use proxies (SPY drawdown depth; growth-leadership during stress) since FINRA monthly history and historical EPS aren't freely backfillable. The live dashboard uses direct data for all five.`;
 
   const canvas = document.getElementById("history-chart");
 
