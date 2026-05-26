@@ -224,7 +224,8 @@ function evalVIX(d) {
               status === "yellow" ? "Elevated but below the trigger threshold." :
               "Below trigger threshold; no fear pricing.",
     rule: "Trigger when VIX > 30",
-    source: d.source
+    source: d.source,
+    asOf: d.asOf || null
   };
 }
 
@@ -266,7 +267,8 @@ function evalMargin(d) {
       status === "yellow" ? "Slight decrease; below margin." :
       "Increasing — fails trigger."}`,
     rule: "Trigger when FINRA margin debt is decreasing",
-    source: d.source
+    source: d.source,
+    asOf: d.asOf || null
   };
 }
 
@@ -306,6 +308,16 @@ function verdictFor(score) {
   return "No conditions met. Framework signals caution.";
 }
 
+// "2026-05-14" → "May 14, 2026"; "2026-04" → "Apr 2026"
+function formatAsOf(iso) {
+  if (!iso) return null;
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const m = String(iso).match(/^(\d{4})-(\d{1,2})(?:-(\d{1,2}))?$/);
+  if (!m) return String(iso);
+  const mon = months[parseInt(m[2]) - 1] || "";
+  return m[3] ? `${mon} ${parseInt(m[3])}, ${m[1]}` : `${mon} ${m[1]}`;
+}
+
 // ============================================================
 // Lean overview cards
 // ============================================================
@@ -314,18 +326,21 @@ function renderCards(results) {
   root.innerHTML = "";
   results.forEach(r => {
     const el = document.createElement("div");
-    el.className = `card ${r.status}`;
+    el.className = `card ${r.status}${r.source === "mock" ? " is-mock" : ""}`;
     el.dataset.tab = r.tab;
-    const sourceTag = r.source === "live"
-      ? `<span class="source-tag live">live</span>`
-      : `<span class="source-tag mock">mock</span>`;
+    // Freshness footer: a clear sample-data warning on mock, otherwise the
+    // data's "as of" date (or "live" when it's computed from current data).
+    const freshness = r.source === "mock"
+      ? `<div class="card-fresh mock">⚠ Sample data — live source unavailable</div>`
+      : `<div class="card-fresh live">${r.asOf ? "as of " + formatAsOf(r.asOf) : "live"}</div>`;
     el.innerHTML = `
       <div class="card-head">
         <span class="card-title">${r.title}</span>
         <span class="status-pill ${r.status}">${r.status === "green" ? "PASS" : r.status === "yellow" ? "WATCH" : "FAIL"}</span>
       </div>
-      <div class="card-value">${r.value} ${sourceTag}</div>
+      <div class="card-value">${r.value}</div>
       <div class="card-takeaway">${r.takeaway}</div>
+      ${freshness}
       <div class="card-link">View details →</div>
     `;
     el.addEventListener("click", () => activateTab(r.tab));
