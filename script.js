@@ -189,26 +189,46 @@ const MOCK = {
     ],
     source: "mock"
   },
-  earnings: {
-    sectorTicker: "SMH",
-    beatRate: 0.68,
-    quartersUpward: 3,
-    sample: 10,
-    perTicker: [
-      { ticker: "NVDA", actual: 5.16, estimate: 4.80, surprise: 7.5, beat: true },
-      { ticker: "TSM",  actual: 1.94, estimate: 1.85, surprise: 4.9, beat: true },
-      { ticker: "AVGO", actual: 1.42, estimate: 1.38, surprise: 2.9, beat: true },
-      { ticker: "AMD",  actual: 0.92, estimate: 0.88, surprise: 4.5, beat: true },
-      { ticker: "ASML", actual: 6.20, estimate: 5.95, surprise: 4.2, beat: true },
-      { ticker: "QCOM", actual: 2.80, estimate: 2.85, surprise: -1.8, beat: false },
-      { ticker: "INTC", actual: 0.18, estimate: 0.22, surprise: -18.2, beat: false },
-      { ticker: "AMAT", actual: 2.10, estimate: 2.05, surprise: 2.4, beat: true },
-      { ticker: "LRCX", actual: 1.05, estimate: 0.98, surprise: 7.1, beat: true },
-      { ticker: "KLAC", actual: 8.20, estimate: 8.05, surprise: 1.9, beat: true }
-    ],
-    source: "mock"
-  }
+  earnings: buildMockEarnings()
 };
+
+// Synthesize a plausible earnings object (latest quarter + 6-quarter history
+// per ticker) so the redesigned Earnings tab renders without live data.
+function buildMockEarnings() {
+  const Qs = ["Q3 2025", "Q4 2025", "Q1 2026", "Q2 2026", "Q3 2026", "Q4 2026"]; // oldest→newest
+  // beats per quarter (oldest→newest). Column sums rise 4→6→8→8→9→9 so the
+  // mock momentum strip shows a realistic upward earnings trajectory.
+  const seed = [
+    ["NVDA", 4.80, [1,1,1,1,1,1]], ["TSM", 1.85, [1,1,1,1,1,1]],
+    ["AVGO", 1.38, [1,1,1,1,1,1]], ["AMD", 0.88, [0,1,1,1,1,1]],
+    ["ASML", 5.95, [0,1,1,1,1,1]], ["QCOM", 2.85, [0,0,1,1,1,1]],
+    ["INTC", 0.22, [0,0,0,0,0,0]], ["AMAT", 2.05, [1,1,1,1,1,1]],
+    ["LRCX", 0.98, [0,0,1,1,1,1]], ["KLAC", 8.05, [0,0,0,0,1,1]]
+  ];
+  const perTicker = seed.map(([ticker, baseEst, beats]) => {
+    const history = Qs.map((q, i) => {
+      const est = +(baseEst * (1 + i * 0.04)).toFixed(2);
+      const beat = beats[i] === 1;
+      const surprise = beat ? +(2 + ((ticker.length * (i + 1)) % 7)).toFixed(1)
+                            : -+(1 + ((ticker.length + i) % 5)).toFixed(1);
+      const actual = +(est * (1 + surprise / 100)).toFixed(2);
+      return { quarter: q, estimate: est, actual, surprise, beat };
+    }).reverse(); // newest first
+    const latest = history[0];
+    return { ticker, actual: latest.actual, estimate: latest.estimate,
+             surprise: latest.surprise, beat: latest.beat, history };
+  });
+  const beats = perTicker.filter(t => t.beat).length;
+  return {
+    sectorTicker: "SMH",
+    beatRate: beats / perTicker.length,
+    quartersUpward: 3,
+    sample: perTicker.length,
+    perTicker,
+    quarterlyTrend: buildEarningsTrend(perTicker),
+    source: "mock"
+  };
+}
 
 // ============================================================
 // Trigger evaluators
@@ -1246,42 +1266,112 @@ function renderSectorsDetail(d, evalResult) {
   });
 }
 
+// Small green/red squares for a ticker's last N quarters (oldest → newest).
+function beatStrip(history, n = 6) {
+  const cells = [...(history || [])].slice(0, n).reverse().map(q => {
+    const cls = q.beat ? "b" : "m";
+    const s = Number(q.surprise ?? 0);
+    return `<span class="beat-cell ${cls}" title="${q.quarter}: ${q.beat ? "BEAT" : "MISS"} (${s >= 0 ? "+" : ""}${s.toFixed(1)}%)"></span>`;
+  }).join("");
+  return `<span class="beat-strip">${cells}</span>`;
+}
+
 function renderEarningsDetail(d, evalResult) {
-  const rows = d.perTicker.map(t => `
-    <tr>
-      <td><strong>${t.ticker}</strong></td>
-      <td class="num">${t.actual?.toFixed(2) ?? "–"}</td>
-      <td class="num">${t.estimate?.toFixed(2) ?? "–"}</td>
-      <td class="num ${t.beat ? "beat" : "miss"}">${t.surprise >= 0 ? "+" : ""}${t.surprise?.toFixed(1) ?? "–"}%</td>
-      <td class="${t.beat ? "beat" : "miss"}">${t.beat ? "BEAT" : "MISS"}</td>
-    </tr>
-  `).join("");
+  const avgSurprise = d.perTicker.reduce((a, t) => a + (t.surprise || 0), 0) / d.perTicker.length;
+  const trend = d.quarterlyTrend || [];
+  const momentumUp = trend.length >= 2 && trend[trend.length - 1].beatRate >= trend[0].beatRate;
+
+  // Sector earnings-momentum strip: beat-rate per reporting cycle (oldest→newest)
+  const momentum = trend.length ? `
+    <div class="detail-section">
+      <h3>Sector earnings momentum — beat rate by quarter</h3>
+      <div class="earn-momentum">
+        ${trend.map(q => {
+          const pct = Math.round(q.beatRate * 100);
+          return `<div class="earn-mom-item" title="${q.label}: ${pct}% of constituents beat (${q.n} reporting)">
+            <div class="earn-mom-track"><div class="earn-mom-fill" style="height:${Math.max(6, pct)}%"></div></div>
+            <div class="earn-mom-pct">${pct}%</div>
+            <div class="earn-mom-label">${(q.label || "").replace(/^Q(\d)\s+\d{2}(\d{2})$/, "Q$1'$2")}</div>
+          </div>`;
+        }).join("")}
+      </div>
+      <p class="earn-momentum-note">${momentumUp
+        ? "Beat rate is flat-to-rising across recent quarters — an upward earnings trajectory."
+        : "Beat rate has softened across recent quarters."}</p>
+    </div>` : "";
+
+  const rows = d.perTicker.map(t => {
+    const hasHist = (t.history || []).length > 0;
+    return `
+      <tr class="earn-row${hasHist ? "" : " no-hist"}" data-ticker="${t.ticker}">
+        <td>${hasHist ? '<span class="expander">▶</span> ' : ""}<strong>${t.ticker}</strong></td>
+        <td class="num">${t.estimate?.toFixed(2) ?? "–"} → ${t.actual?.toFixed(2) ?? "–"}</td>
+        <td class="num ${t.beat ? "beat" : "miss"}">${t.surprise >= 0 ? "+" : ""}${t.surprise?.toFixed(1) ?? "–"}%</td>
+        <td class="${t.beat ? "beat" : "miss"}">${t.beat ? "BEAT" : "MISS"}</td>
+        <td class="beat-strip-cell">${beatStrip(t.history)}</td>
+      </tr>
+      <tr class="earn-detail-row" data-detail="${t.ticker}" hidden>
+        <td colspan="5"><div class="earn-hist-wrap" data-content="${t.ticker}"></div></td>
+      </tr>`;
+  }).join("");
 
   document.getElementById("earnings-detail").innerHTML = `
     <div class="detail-head">
       <div>
         <h2>Earnings Profile ${statusPill(evalResult.status)}</h2>
-        <div class="sub">Latest-quarter EPS performance for the leading sector's top constituents.</div>
+        <div class="sub">EPS beats for the leading sector's (${d.sectorTicker}) top constituents. Click a ticker for its quarterly history.</div>
       </div>
-      <div class="updated">Sector: ${d.sectorTicker}</div>
+      <div class="updated">Leading sector: ${d.sectorTicker}</div>
     </div>
     <div class="stat-row">
-      <div class="stat"><div class="stat-label">Beat rate</div><div class="stat-value">${(d.beatRate * 100).toFixed(0)}%</div><div class="stat-sub">${d.perTicker.filter(t => t.beat).length} of ${d.sample} sampled</div></div>
-      <div class="stat"><div class="stat-label">Avg surprise</div><div class="stat-value">${(d.perTicker.reduce((a, t) => a + (t.surprise || 0), 0) / d.perTicker.length).toFixed(1)}%</div></div>
-      <div class="stat"><div class="stat-label">Quarters trending up</div><div class="stat-value">${d.quartersUpward}/4</div></div>
-      <div class="stat"><div class="stat-label">Sample size</div><div class="stat-value">${d.sample}</div><div class="stat-sub">top constituents</div></div>
+      <div class="stat"><div class="stat-label">Beat rate</div><div class="stat-value">${(d.beatRate * 100).toFixed(0)}%</div><div class="stat-sub">${d.perTicker.filter(t => t.beat).length} of ${d.sample} beat last quarter</div></div>
+      <div class="stat"><div class="stat-label">Avg surprise</div><div class="stat-value">${avgSurprise >= 0 ? "+" : ""}${avgSurprise.toFixed(1)}%</div><div class="stat-sub">vs consensus EPS</div></div>
+      <div class="stat"><div class="stat-label">Momentum</div><div class="stat-value">${momentumUp ? "▲ Up" : "▼ Soft"}</div><div class="stat-sub">beat-rate trajectory</div></div>
+      <div class="stat"><div class="stat-label">Constituents</div><div class="stat-value">${d.sample}</div><div class="stat-sub">top holdings sampled</div></div>
     </div>
+    ${momentum}
     <div class="detail-section">
-      <h3>Latest quarter — per ticker</h3>
-      <table class="data">
-        <thead><tr><th>Ticker</th><th class="num">Actual EPS</th><th class="num">Estimate</th><th class="num">Surprise</th><th>Result</th></tr></thead>
+      <h3>Latest quarter — per ticker · last 6 quarters at right</h3>
+      <table class="data earnings-table">
+        <thead><tr><th>Ticker</th><th class="num">Est → Act</th><th class="num">Surprise</th><th>Latest</th><th>Beat history</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>
     <div class="rule-box">
-      <strong>Rule:</strong> Trigger when ≥60% of the leading sector's top constituents beat their EPS estimate. During macro pain, sectors that <em>continue</em> beating earn fundamental support — the kind that institutions chase.
-    </div>
-  `;
+      <strong>Rule:</strong> Trigger when ≥60% of the leading sector's top constituents beat their EPS estimate. A sector that's both clearly outperforming <em>and</em> beating earnings has fundamental backing — the kind institutions chase. The momentum strip shows whether that beat rate is on an upward trajectory.
+    </div>`;
+
+  // Wire expand/collapse for per-ticker quarterly history.
+  document.querySelectorAll("#earnings-detail .earn-row").forEach(row => {
+    if (row.classList.contains("no-hist")) return;
+    row.addEventListener("click", () => {
+      const ticker = row.dataset.ticker;
+      const detailRow = document.querySelector(`#earnings-detail .earn-detail-row[data-detail="${ticker}"]`);
+      const wrap = detailRow.querySelector(".earn-hist-wrap");
+      const expander = row.querySelector(".expander");
+      if (!detailRow.hidden) { detailRow.hidden = true; if (expander) expander.textContent = "▶"; return; }
+      detailRow.hidden = false;
+      if (expander) expander.textContent = "▼";
+      if (!wrap.dataset.loaded) {
+        const t = d.perTicker.find(x => x.ticker === ticker);
+        const hist = [...(t?.history || [])]; // newest first
+        wrap.innerHTML = `
+          <table class="data earn-hist">
+            <thead><tr><th>Quarter</th><th class="num">Estimate</th><th class="num">Actual</th><th class="num">Surprise</th><th>Result</th></tr></thead>
+            <tbody>${hist.map(q => `
+              <tr>
+                <td>${q.quarter}</td>
+                <td class="num">${q.estimate?.toFixed(2) ?? "–"}</td>
+                <td class="num">${q.actual?.toFixed(2) ?? "–"}</td>
+                <td class="num ${q.beat ? "beat" : "miss"}">${q.surprise >= 0 ? "+" : ""}${(q.surprise ?? 0).toFixed(1)}%</td>
+                <td class="${q.beat ? "beat" : "miss"}">${q.beat ? "BEAT" : "MISS"}</td>
+              </tr>`).join("")}
+            </tbody>
+          </table>`;
+        wrap.dataset.loaded = "1";
+      }
+    });
+  });
 }
 
 // ============================================================
@@ -1780,7 +1870,8 @@ async function fetchEarnings_live(sectorTicker) {
       actual:   latest.actual,
       estimate: latest.estimate,
       surprise: latest.surprise,
-      beat
+      beat,
+      history: Array.isArray(r.value.history) ? r.value.history : []
     });
     const last4 = (r.value.history || []).slice(0, 4);
     upwardSum += last4.filter(q => q.beat).length;
@@ -1793,8 +1884,27 @@ async function fetchEarnings_live(sectorTicker) {
     quartersUpward: Math.round(upwardSum / Math.max(1, total)),
     sample: total,
     perTicker,
+    quarterlyTrend: buildEarningsTrend(perTicker),
     source: "live"
   };
+}
+
+// Aggregate beat-rate across constituents at each reporting index (0 = most
+// recent quarter, 1 = previous, ...). Returns oldest -> newest so the UI can
+// show whether the sector's earnings momentum is on an upward trajectory.
+function buildEarningsTrend(perTicker, depth = 6) {
+  const maxLen = Math.max(0, ...perTicker.map(t => (t.history || []).length));
+  const d = Math.min(depth, maxLen);
+  const trend = [];
+  for (let k = d - 1; k >= 0; k--) {
+    let beats = 0, n = 0, label = "";
+    for (const t of perTicker) {
+      const q = (t.history || [])[k];
+      if (q) { n++; if (q.beat) beats++; if (!label) label = q.quarter || ""; }
+    }
+    if (n) trend.push({ label, beatRate: beats / n, n });
+  }
+  return trend;
 }
 
 // ============================================================
