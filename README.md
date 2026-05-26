@@ -38,3 +38,17 @@ Copy `config.example.js` → `config.js` and set:
 - `USE_REAL_DATA: true` to enable live fetches
 - `FRED_API_KEY` — free at https://fred.stlouisfed.org/docs/api/api_key.html
 - `FINNHUB_API_KEY` — free at https://finnhub.io/register
+
+## Health monitoring (deployed)
+
+`/api/health` probes every live data source and returns per-source status
+(`200` all-ok, `503` if any degraded). A daily Vercel cron (`vercel.json`)
+hits it automatically.
+
+To get alerted when a scraper breaks, set a Vercel environment variable:
+- `ALERT_WEBHOOK` — a Slack or Discord incoming-webhook URL. When the daily
+  check finds a degraded source, a summary is POSTed to it. If unset, the
+  endpoint still works for manual checks — just no push alert.
+
+Server-side write-back (FINRA auto-update) uses:
+- `GITHUB_TOKEN` — fine-grained PAT with Contents:write on this repo.
