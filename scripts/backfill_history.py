@@ -41,6 +41,9 @@ def month_add(ymv, n):      # shift "YYYY-MM" by n months
 
 # ---------------------------------------------------------------- VIX (real)
 def load_vix_monthly():
+    """Return {month: {'mean':, 'max':}}. We trigger on monthly MAX close > 30
+    to match the live dashboard rule (VIX > 30 at any point) — a brief spike
+    above 30 IS an entry signal even if the month's average is calmer."""
     raw = fetch("https://raw.githubusercontent.com/datasets/finance-vix/master/data/vix-daily.csv").decode()
     by_month = {}
     for line in raw.strip().splitlines()[1:]:
@@ -52,7 +55,7 @@ def load_vix_monthly():
             by_month.setdefault(ym(date), []).append(float(close))
         except ValueError:
             continue
-    return {k: statistics.mean(v) for k, v in by_month.items()}
+    return {k: {"mean": statistics.mean(v), "max": max(v)} for k, v in by_month.items()}
 
 # ---------------------------------------------------------- Fed rate (real)
 def load_fed_monthly():
@@ -92,10 +95,21 @@ def ret_3m(series, mth):
         return series[mth] / series[prev] - 1.0
     return None
 
+def load_real_margin():
+    """Real FINRA margin debt by month (data/finra_margin.json), if present —
+    used for recent months instead of the SPY-drawdown proxy."""
+    path = os.path.join(os.path.dirname(__file__), "..", "data", "finra_margin.json")
+    try:
+        j = json.load(open(path, encoding="utf-8"))
+        return {h["month"]: h["value"] for h in j.get("history", [])}
+    except Exception:
+        return {}
+
 def main():
     print("Fetching VIX…");   vix = load_vix_monthly()
     print("Fetching Fed…");   fed = load_fed_monthly()
     print("Fetching SPY…");   spy = load_yahoo_monthly("SPY")
+    real_margin = load_real_margin()
     sectors = {}
     for s in SECTORS:
         print("Fetching", s, "…")
@@ -118,9 +132,11 @@ def main():
 
     points = []
     for mth in months:
-        # 1. VIX
-        vix_m = vix.get(mth)
-        s_vix = vix_m is not None and vix_m >= 28
+        # 1. VIX — crossed 30 on any day this month (matches live rule VIX > 30)
+        vinfo = vix.get(mth)
+        vix_max = vinfo["max"] if vinfo else None
+        vix_mean = vinfo["mean"] if vinfo else None
+        s_vix = vix_max is not None and vix_max > 30
 
         # 2. Fed not rising (vs 3 months ago). Pre-2009: Fed was flat/cutting -> pass.
         if mth < "2009-01":
@@ -144,18 +160,27 @@ def main():
         lead_name = None
         if len(rs) >= 2:
             top, runner = rs[0], rs[1]
-            decisive = top[1] >= 0.03 and (top[1] - runner[1]) >= 0.03
+            # Match the live dashboard rule: a growth sector leads the runner-up
+            # by >=3pp of relative strength. (We restrict the candidate set to
+            # growth/cyclical sectors above, faithful to the framework's
+            # "thematic engine" intent.)
+            decisive = (top[1] - runner[1]) >= 0.03
             if decisive:
                 lead_name = SECTOR_NAMES.get(top[0], top[0])
         s_sector = decisive
 
-        # 4. Margin proxy: SPY >=10% below trailing 6-month high
-        s_margin = False
-        if mth in spy:
-            highs = [spy[month_add(mth, -k)] for k in range(0, 7) if month_add(mth, -k) in spy]
-            if highs:
-                peak = max(highs)
-                s_margin = spy[mth] <= peak * 0.90
+        # 4. Margin debt decreasing. Use REAL FINRA data where available
+        # (recent months); otherwise fall back to the SPY-drawdown proxy.
+        prev_m = month_add(mth, -1)
+        if mth in real_margin and prev_m in real_margin:
+            s_margin = real_margin[mth] < real_margin[prev_m]
+        else:
+            s_margin = False
+            if mth in spy:
+                highs = [spy[month_add(mth, -k)] for k in range(0, 7) if month_add(mth, -k) in spy]
+                if highs:
+                    peak = max(highs)
+                    s_margin = spy[mth] <= peak * 0.90
 
         # 5. Earnings proxy: leadership resilience during macro pain
         s_earn = bool(s_vix and decisive)
@@ -171,7 +196,7 @@ def main():
         if score >= 4:
             bits = []
             if mth in EVENTS: bits.append(EVENTS[mth])
-            if s_vix:    bits.append(f"VIX≈{vix_m:.0f}")
+            if s_vix:    bits.append(f"VIX peak {vix_max:.0f}")
             if lead_name: bits.append(f"{lead_name} leading")
             note = " · ".join(bits)
 
