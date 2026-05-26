@@ -1281,25 +1281,6 @@ function renderEarningsDetail(d, evalResult) {
   const trend = d.quarterlyTrend || [];
   const momentumUp = trend.length >= 2 && trend[trend.length - 1].beatRate >= trend[0].beatRate;
 
-  // Sector earnings-momentum strip: beat-rate per reporting cycle (oldest→newest)
-  const momentum = trend.length ? `
-    <div class="detail-section">
-      <h3>Sector earnings momentum — beat rate by quarter</h3>
-      <div class="earn-momentum">
-        ${trend.map(q => {
-          const pct = Math.round(q.beatRate * 100);
-          return `<div class="earn-mom-item" title="${q.label}: ${pct}% of constituents beat (${q.n} reporting)">
-            <div class="earn-mom-track"><div class="earn-mom-fill" style="height:${Math.max(6, pct)}%"></div></div>
-            <div class="earn-mom-pct">${pct}%</div>
-            <div class="earn-mom-label">${(q.label || "").replace(/^Q(\d)\s+\d{2}(\d{2})$/, "Q$1'$2")}</div>
-          </div>`;
-        }).join("")}
-      </div>
-      <p class="earn-momentum-note">${momentumUp
-        ? "Beat rate is flat-to-rising across recent quarters — an upward earnings trajectory."
-        : "Beat rate has softened across recent quarters."}</p>
-    </div>` : "";
-
   const rows = d.perTicker.map(t => {
     const hasHist = (t.history || []).length > 0;
     return `
@@ -1326,10 +1307,9 @@ function renderEarningsDetail(d, evalResult) {
     <div class="stat-row">
       <div class="stat"><div class="stat-label">Beat rate</div><div class="stat-value">${(d.beatRate * 100).toFixed(0)}%</div><div class="stat-sub">${d.perTicker.filter(t => t.beat).length} of ${d.sample} beat last quarter</div></div>
       <div class="stat"><div class="stat-label">Avg surprise</div><div class="stat-value">${avgSurprise >= 0 ? "+" : ""}${avgSurprise.toFixed(1)}%</div><div class="stat-sub">vs consensus EPS</div></div>
-      <div class="stat"><div class="stat-label">Momentum</div><div class="stat-value">${momentumUp ? "▲ Up" : "▼ Soft"}</div><div class="stat-sub">beat-rate trajectory</div></div>
-      <div class="stat"><div class="stat-label">Constituents</div><div class="stat-value">${d.sample}</div><div class="stat-sub">top holdings sampled</div></div>
+      <div class="stat"><div class="stat-label">Momentum</div><div class="stat-value ${momentumUp ? "mom-up" : "mom-down"}">${momentumUp ? "▲ Up" : "▼ Soft"}</div><div class="stat-sub">beat-rate trajectory</div></div>
+      <div class="stat"><div class="stat-label">Constituents</div><div class="stat-value">${d.sample}</div><div class="stat-sub">top-${d.sample} ETF holdings</div></div>
     </div>
-    ${momentum}
     <div class="detail-section">
       <h3>Latest quarter — per ticker · last 6 quarters at right</h3>
       <table class="data earnings-table">
