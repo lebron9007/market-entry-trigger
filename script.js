@@ -235,58 +235,90 @@ function buildMockEarnings() {
 
 
 // ============================================================
-// Lean overview cards
+// Overview: score ring + condition checklist
 // ============================================================
+const STATUS_WORD = { green: "PASS", yellow: "WATCH", red: "FAIL" };
+const STATUS_ICON = { green: "✓", yellow: "!", red: "✕" };
+
+// One row per condition: status, name + takeaway, progress toward the
+// trigger line (with the gauge text), and the current value. Click opens
+// that condition's tab.
 function renderCards(results) {
   const root = document.getElementById("cards");
   root.innerHTML = "";
   results.forEach(r => {
     const el = document.createElement("div");
-    el.className = `card ${r.status}${r.source === "mock" ? " is-mock" : ""}`;
+    el.className = `check-row ${r.status}${r.source === "mock" ? " is-mock" : ""}`;
     el.dataset.tab = r.tab;
-    // Freshness footer: a clear sample-data warning on mock, otherwise the
-    // data's "as of" date (or "live" when it's computed from current data).
-    const freshness = r.source === "mock"
-      ? `<div class="card-fresh mock">⚠ Sample data — live source unavailable</div>`
-      : `<div class="card-fresh live">${r.asOf ? "as of " + formatAsOf(r.asOf) : "live"}</div>`;
+    el.setAttribute("role", "button");
+    el.tabIndex = 0;
+    el.setAttribute("aria-label", `${r.title}: ${STATUS_WORD[r.status]}, ${r.value}. Open details`);
+
+    const fresh = r.source === "mock"
+      ? `<span class="check-mock">⚠ Sample data — live source unavailable</span>`
+      : (r.asOf ? `<span class="check-asof">as of ${formatAsOf(r.asOf)}</span>` : "");
+    const g = r.gauge;
+    const progress = g && Number.isFinite(g.progress)
+      ? `<div class="pbar" aria-hidden="true"><i style="width:${(g.progress * 100).toFixed(0)}%"></i></div>
+         <div class="check-gauge">${g.text}</div>`
+      : `<div class="check-gauge muted">${g ? g.text : "—"}</div>`;
+
     el.innerHTML = `
-      <div class="card-head">
-        <span class="card-title">${r.title}</span>
-        <span class="status-pill ${r.status}">${r.status === "green" ? "PASS" : r.status === "yellow" ? "WATCH" : "FAIL"}</span>
+      <span class="check-icon" aria-hidden="true">${STATUS_ICON[r.status]}</span>
+      <div class="check-name">
+        <div class="check-title">${r.title} <span class="status-pill ${r.status}">${STATUS_WORD[r.status]}</span></div>
+        <div class="check-sub"><span class="check-take">${r.takeaway}</span> ${fresh}</div>
       </div>
-      <div class="card-value">${r.value}</div>
-      ${r.gauge ? `<div class="card-gauge ${r.gauge.met ? "met" : "unmet"}">${r.gauge.met ? "✓" : "✕"} ${r.gauge.text}</div>` : ""}
-      <div class="card-takeaway">${r.takeaway}</div>
-      ${freshness}
-      <div class="card-link">View details →</div>
+      <div class="check-progress">${progress}</div>
+      <div class="check-value">${r.value}</div>
+      <span class="check-chev" aria-hidden="true">›</span>
     `;
     el.addEventListener("click", () => activateTab(r.tab));
+    el.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); activateTab(r.tab); }
+    });
     root.appendChild(el);
   });
 }
 
-// Short labels for the trigger pills shown next to the score number.
-const PILL_LABELS = {
-  vix: "VIX",
-  fed: "Fed",
-  margin: "Margin",
-  sectors: "Sector",
-  earnings: "Earnings"
-};
+// Five-segment ring: one arc per condition, clockwise from the top in the
+// same order as the checklist, coloured by status.
+const RING_COLORS = { green: "var(--green)", yellow: "var(--yellow)", red: "var(--red)" };
+
+function ringSVG(score, results) {
+  const cx = 80, cy = 80, r = 64, gapDeg = 5;
+  const pt = deg => {
+    const rad = (deg - 90) * Math.PI / 180;
+    return `${(cx + r * Math.cos(rad)).toFixed(2)} ${(cy + r * Math.sin(rad)).toFixed(2)}`;
+  };
+  const arcs = results.map((res, i) => {
+    const start = i * 72 + gapDeg / 2;
+    const end = (i + 1) * 72 - gapDeg / 2;
+    return `<path class="ring-seg" data-tab="${res.tab}" d="M ${pt(start)} A ${r} ${r} 0 0 1 ${pt(end)}"
+              stroke="${RING_COLORS[res.status] || "rgba(139,148,158,0.4)"}">
+              <title>${res.title}: ${STATUS_WORD[res.status]} (${res.value})</title></path>`;
+  }).join("");
+  return `
+    <svg viewBox="0 0 160 160" role="img" aria-label="${score} of 5 conditions met">
+      <g fill="none" stroke-width="14" stroke-linecap="butt">${arcs}</g>
+      <text x="80" y="88" text-anchor="middle" class="ring-score">${score}</text>
+      <text x="80" y="108" text-anchor="middle" class="ring-label">of 5 met</text>
+    </svg>`;
+}
 
 function renderScore(score, results) {
-  document.getElementById("score-number").textContent = score;
-
-  const pillsWrap = document.getElementById("trigger-pills");
-  if (pillsWrap && results) {
-    pillsWrap.innerHTML = results.map(r => {
-      const label = PILL_LABELS[r.tab] || r.title;
-      return `<span class="trigger-pill ${r.status}"><span class="pill-dot"></span>${label}</span>`;
-    }).join("");
+  const ring = document.getElementById("score-ring");
+  if (ring && results) {
+    ring.innerHTML = ringSVG(score, results);
+    ring.querySelectorAll(".ring-seg").forEach(seg =>
+      seg.addEventListener("click", () => activateTab(seg.dataset.tab)));
   }
 
+  // Verdict, plus which conditions are still outstanding.
   const verdictEl = document.getElementById("verdict");
-  verdictEl.textContent = verdictFor(score);
+  const pending = (results || []).filter(r => !r.pass).map(r => r.title);
+  verdictEl.innerHTML = `${verdictFor(score)}${pending.length && pending.length < 5
+    ? `<div class="verdict-sub">Waiting on: ${pending.join(", ")}</div>` : ""}`;
   const tier = score >= 5 ? "5" : score >= 4 ? "4" : score >= 3 ? "3" : "low";
   verdictEl.className = `verdict score-${tier}`;
 }

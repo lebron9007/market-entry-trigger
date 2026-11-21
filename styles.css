@@ -45,8 +45,8 @@ html, body {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 /* Smooth most colour-bearing surfaces on theme switch. */
-.panel, .card, .stat, .collapsible, .credit-card, .trigger-pill,
-.tab, .detail, .history, .score-panel, .methodology-item, table.data th,
+.panel, .check-row, .stat, .collapsible, .credit-card,
+.tab, .detail, .history, .hero, .methodology-item, table.data th,
 table.data td, .rule-box, .footer, .theme-toggle, button {
   transition: background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease;
 }
@@ -336,80 +336,81 @@ table.data td, .rule-box, .footer, .theme-toggle, button {
   color: var(--text-dim);
 }
 
-/* Score panel */
-.score-panel {
+/* Overview hero: five-segment score ring + condition checklist */
+.hero {
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 32px;
-  align-items: center;
+  grid-template-columns: 170px minmax(0, 1fr);
+  grid-template-areas:
+    "ring main"
+    "log  log";
+  gap: 18px 28px;
+  align-items: start;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 24px 28px;
   margin-bottom: 24px;
 }
-.score-big { display: flex; align-items: baseline; gap: 12px; }
-.score-number {
-  font-family: var(--mono);
-  font-size: 64px;
-  font-weight: 700;
-  line-height: 1;
-  color: var(--text);
-}
-.score-label { color: var(--text-dim); font-size: 14px; }
+.hero-ring { grid-area: ring; width: 170px; }
+.hero-ring svg { display: block; width: 100%; height: auto; }
+.ring-seg { cursor: pointer; transition: opacity 0.15s; }
+.ring-seg:hover { opacity: 0.7; }
+.ring-score { font-family: var(--mono); font-size: 46px; font-weight: 700; fill: var(--text); }
+.ring-label { font-size: 12px; fill: var(--text-dim); }
+.hero-main { grid-area: main; min-width: 0; }
+.hero .score-log { grid-area: log; margin-top: 0; padding-top: 14px; border-top: 1px solid var(--border); }
+.verdict-sub { margin-top: 4px; font-size: 13px; font-weight: 500; color: var(--text-dim); }
 
-.score-meta { display: flex; flex-direction: column; gap: 12px; }
-
-/* Trigger pills — five small badges, one per condition, showing live status. */
-.trigger-pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.trigger-pill {
-  display: inline-flex;
+/* Checklist rows — one per condition */
+.checklist { margin-top: 14px; border-top: 1px solid var(--border); }
+.check-row {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) 220px 112px 12px;
+  grid-template-areas: "icon name prog value chev";
+  gap: 14px;
   align-items: center;
-  gap: 7px;
-  padding: 5px 12px 5px 10px;
-  background: var(--panel-2);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-  color: var(--text);
-  transition: border-color 0.15s, background 0.15s;
+  padding: 11px 8px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
 }
-.pill-dot {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
+.check-row:last-child { border-bottom: none; }
+.check-row:hover, .check-row:focus-visible { background: var(--panel-2); outline: none; }
+.check-row.is-mock { box-shadow: inset 3px 0 0 var(--yellow); }
+.check-icon {
+  grid-area: icon;
+  width: 22px; height: 22px;
   border-radius: 50%;
-  background: rgba(139, 148, 158, 0.5);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700;
 }
-.trigger-pill.green {
-  background: rgba(46, 160, 67, 0.08);
-  border-color: rgba(46, 160, 67, 0.30);
+.check-row.green  .check-icon { background: var(--green-soft);  color: var(--green); }
+.check-row.yellow .check-icon { background: var(--yellow-soft); color: var(--yellow); }
+.check-row.red    .check-icon { background: var(--red-soft);    color: var(--red); }
+.check-name { grid-area: name; min-width: 0; }
+.check-title { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; }
+.check-sub { margin-top: 2px; font-size: 12px; line-height: 1.4; color: var(--text-dim); }
+.check-asof { margin-left: 4px; font-family: var(--mono); font-size: 11px; white-space: nowrap; }
+.check-mock { margin-left: 4px; color: var(--yellow); font-weight: 600; }
+.check-progress { grid-area: prog; min-width: 0; }
+.pbar { height: 6px; border-radius: 3px; background: rgba(139,148,158,0.18); overflow: hidden; }
+.pbar > i { display: block; height: 100%; border-radius: 3px; }
+.check-row.green  .pbar > i { background: var(--green); }
+.check-row.yellow .pbar > i { background: var(--yellow); }
+.check-row.red    .pbar > i { background: var(--red); }
+.check-gauge { margin-top: 5px; font-size: 12px; line-height: 1.3; }
+.check-row.green  .check-gauge { color: var(--green); }
+.check-row.yellow .check-gauge { color: var(--yellow); }
+.check-row.red    .check-gauge { color: var(--red); }
+.check-gauge.muted { color: var(--text-dim) !important; }
+.check-value {
+  grid-area: value;
+  font-family: var(--mono); font-size: 18px; font-weight: 700;
+  text-align: right; white-space: nowrap;
 }
-.trigger-pill.green .pill-dot { background: #2ea043; }
-.trigger-pill.yellow {
-  background: rgba(210, 153, 34, 0.08);
-  border-color: rgba(210, 153, 34, 0.30);
-}
-.trigger-pill.yellow .pill-dot { background: #d29922; }
-/* Failed condition: red, matching the FAIL status on its card. */
-.trigger-pill.red {
-  background: rgba(218, 54, 51, 0.08);
-  border-color: rgba(218, 54, 51, 0.30);
-}
-.trigger-pill.red .pill-dot { background: var(--red); }
-.trigger-pill.loading {
-  color: var(--text-dim);
-  border-style: dashed;
-}
+.check-chev { grid-area: chev; color: var(--text-dim); font-size: 18px; line-height: 1; }
 
 .verdict {
-  margin-top: 10px;
+  margin-top: 0;
   font-size: 16px;
   font-weight: 600;
   line-height: 1.4;
@@ -452,12 +453,13 @@ table.data td, .rule-box, .footer, .theme-toggle, button {
 }
 .log-cell.partial { opacity: 0.5; }
 
-/* Skeleton loading state — initial cards before JS hydrates */
-.card.skeleton {
-  border-left-color: var(--border);
-  cursor: default;
-}
-.card.skeleton:hover { transform: none; border-color: var(--border); }
+/* Skeleton loading state — checklist rows before JS hydrates */
+.check-row.skeleton { cursor: default; }
+.check-row.skeleton:hover { background: none; }
+.check-row.skeleton > div:first-of-type { grid-area: name; }
+.sk-dot { grid-area: icon; width: 22px; height: 22px; border-radius: 50%; }
+.sk-bar { grid-area: prog; height: 6px; }
+.check-row .sk-value { grid-area: value; justify-self: end; width: 70%; height: 18px; margin: 0; }
 .sk {
   background: linear-gradient(
     90deg,
@@ -469,7 +471,7 @@ table.data td, .rule-box, .footer, .theme-toggle, button {
   border-radius: 3px;
   animation: sk-shimmer 1.4s infinite linear;
 }
-.sk-title { height: 10px; width: 55%; margin-bottom: 12px; }
+.sk-title { height: 10px; width: 40%; margin-bottom: 8px; }
 .sk-value { height: 22px; width: 40%; margin-bottom: 10px; }
 .sk-line { height: 10px; width: 100%; margin-bottom: 6px; }
 .sk-line-narrow { width: 60%; }
@@ -478,92 +480,6 @@ table.data td, .rule-box, .footer, .theme-toggle, button {
   100% { background-position: -100% 0; }
 }
 
-/* Cards (lean overview cards) */
-/* Five conditions: one row of 5 on desktop, 3 + 2 on tablets, a compact
-   list on phones (see media queries). auto-fit left a lone 5th card. */
-.cards {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 14px;
-  margin-bottom: 32px;
-}
-@media (max-width: 1100px) {
-  .cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-}
-.card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-left-width: 4px;
-  border-radius: 10px;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  position: relative;
-  cursor: pointer;
-  transition: transform 0.12s, border-color 0.12s;
-}
-.card:hover { transform: translateY(-2px); border-color: var(--accent); }
-.card-takeaway {
-  font-size: 12px;
-  color: var(--text-dim);
-  line-height: 1.4;
-}
-/* Distance to the trigger line, e.g. "✓ 5.9 above the 30 trigger" */
-.card-gauge {
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.35;
-}
-.card-gauge.met   { color: var(--green); }
-.card-gauge.unmet { color: var(--red); }
-.card-link {
-  font-size: 11px;
-  color: var(--accent);
-  margin-top: 4px;
-}
-.card-fresh {
-  font-size: 11px;
-  margin-top: 2px;
-}
-.card-fresh.live {
-  color: var(--text-dim);
-  font-family: var(--mono);
-}
-.card-fresh.mock {
-  color: var(--yellow);
-  background: var(--yellow-soft);
-  border: 1px solid rgba(210, 153, 34, 0.35);
-  border-radius: 5px;
-  padding: 4px 8px;
-  font-weight: 600;
-}
-/* When a card is on mock data, override the status accent stripe with an
-   amber warning stripe so it's obvious at a glance. */
-.card.is-mock {
-  border-left-color: var(--yellow) !important;
-}
-/* Subtler accent — the status pill carries the colour, the card stripe is just a hint. */
-.card { border-left-width: 3px; }
-.card.green  { border-left-color: rgba(46, 160, 67, 0.55); }
-.card.yellow { border-left-color: rgba(210, 153, 34, 0.55); }
-.card.red    { border-left-color: rgba(218, 54, 51, 0.50); }
-.card.loading { border-left-color: var(--border); }
-
-.card-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.card-title {
-  font-size: 12px;
-  color: var(--text-dim);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  font-weight: 600;
-  white-space: nowrap;
-}
-.card-head { gap: 8px; }
 .status-pill {
   font-family: var(--mono);
   font-size: 11px;
@@ -575,40 +491,6 @@ table.data td, .rule-box, .footer, .theme-toggle, button {
 .status-pill.yellow { background: var(--yellow-soft); color: var(--yellow); }
 .status-pill.red { background: var(--red-soft); color: var(--red); }
 .status-pill.loading { background: rgba(139,148,158,0.15); color: var(--text-dim); }
-
-.card-value {
-  font-family: var(--mono);
-  font-size: 24px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.source-tag {
-  font-family: var(--mono);
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  padding: 2px 6px;
-  border-radius: 3px;
-  text-transform: uppercase;
-}
-.source-tag.live { background: rgba(88,166,255,0.15); color: var(--accent); }
-.source-tag.mock { background: rgba(139,148,158,0.15); color: var(--text-dim); }
-.card-detail {
-  font-size: 13px;
-  color: var(--text-dim);
-  line-height: 1.45;
-}
-.card-rule {
-  font-size: 11px;
-  color: var(--text-dim);
-  border-top: 1px solid var(--border);
-  padding-top: 8px;
-  margin-top: 4px;
-  font-style: italic;
-}
 
 /* History */
 .history {
@@ -1043,6 +925,20 @@ table.fedwatch-table td.num { white-space: nowrap; }
 
 /* ---------- Responsive ---------- */
 
+/* Narrower screens: each checklist row wraps — status, name and value on
+   the first line, progress bar and gauge underneath. */
+@media (max-width: 1000px) {
+  .check-row {
+    grid-template-columns: 24px minmax(0, 1fr) auto;
+    grid-template-areas:
+      "icon name value"
+      ".    prog prog";
+    row-gap: 8px;
+  }
+  .check-chev { display: none; }
+  .check-value { font-size: 16px; }
+}
+
 @media (max-width: 768px) {
   .container { padding: 20px 14px 48px; }
   .header h1 { font-size: 22px; }
@@ -1053,15 +949,15 @@ table.fedwatch-table td.num { white-space: nowrap; }
   .collapsible > summary { font-size: 11px; }
 
 
-  /* Score panel: stack vertically */
-  .score-panel { grid-template-columns: 1fr; gap: 16px; padding: 20px; }
-  .score-number { font-size: 52px; }
-  .verdict { font-size: 14px; }
-
-  /* Cards: tighter grid */
-  .cards { gap: 10px; }
-  .card { padding: 14px; }
-  .card-value { font-size: 20px; }
+  /* Hero: ring on top, centred */
+  .hero {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "ring" "main" "log";
+    padding: 20px 16px;
+    gap: 14px;
+  }
+  .hero-ring { width: 140px; justify-self: center; }
+  .verdict { font-size: 14px; text-align: center; }
 
   /* Sector table: fixed desktop column widths overflowed a phone screen,
      so the Sector and 3M Return headers overlapped. */
@@ -1100,34 +996,15 @@ table.fedwatch-table td.num { white-space: nowrap; }
   .chart-wrap, .detail-chart { height: 220px; }
 }
 
-/* Phones: cards become a compact list — title + status + value on one row,
-   takeaway and data date beneath — so all five fit on about one screen. */
+/* Phones: drop the explanatory sentence from each checklist row (it's on
+   the condition's tab); the bar, gauge and data date carry the signal. */
 @media (max-width: 600px) {
-  .cards { grid-template-columns: 1fr; gap: 8px; }
-  .card {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    grid-template-areas:
-      "head  value"
-      "gauge gauge"
-      "take  take"
-      "fresh fresh";
-    column-gap: 12px;
-    row-gap: 3px;
-    padding: 11px 14px;
-  }
-  .card-head  { grid-area: head; justify-content: flex-start; gap: 8px; }
-  .card-value { grid-area: value; font-size: 18px; justify-self: end; }
-  .card-gauge { grid-area: gauge; }
-  .card-takeaway { grid-area: take; }
-  .card-fresh { grid-area: fresh; }
-  .card-link  { display: none; }
-  .card:hover { transform: none; }
-  .card.skeleton { display: flex; }
+  .check-take { display: none; }
+  .check-asof, .check-mock { margin-left: 0; }
+  .check-row { padding: 10px 4px; gap: 10px; row-gap: 6px; }
 }
 
 @media (max-width: 420px) {
   .header h1 { font-size: 20px; }
-  .score-number { font-size: 44px; }
   .stat-row { grid-template-columns: 1fr 1fr; }
 }

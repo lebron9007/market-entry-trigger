@@ -198,8 +198,10 @@ function scoreConditions(data) {
 // ============================================================
 // Each rule returns { title, tab, pass, status, value, takeaway, rule,
 // source, asOf, gauge }. `gauge` is the distance to the trigger line:
-// { text, met } — e.g. "5.9 above the 30 trigger".
+// { text, met, progress } — e.g. "5.9 above the 30 trigger"; progress is
+// 0..1 toward the trigger line (1 = met), drawn as the overview bar.
 const n1 = v => Math.abs(v).toFixed(1);
+const clamp01 = v => Math.max(0, Math.min(1, v));
 
 function evalVIX(d) {
   const v = d.value;
@@ -210,6 +212,7 @@ function evalVIX(d) {
     value: v.toFixed(1),
     gauge: {
       met: v > 30,
+      progress: clamp01(v / 30),
       text: v > 30 ? `${n1(v - 30)} above the 30 trigger` : `${n1(30 - v)} below the 30 trigger`
     },
     takeaway: status === "green" ? "Above trigger threshold (>30); fear pricing reached." :
@@ -241,6 +244,8 @@ function evalFed(d) {
       value: `${word} ${pct0(ml.prob ?? 0)}`,
       gauge: {
         met: !hikeLikely,
+        // 0% hike odds = fully clear; 50%+ = blocked. Bar shrinks as odds rise.
+        progress: hikeLikely ? clamp01((1 - fw.pHike) / 0.5) * 0.99 : 1,
         text: `Hike odds ${pct0(fw.pHike)} — must stay under 50%`
       },
       takeaway: `${shortDate(fw.nextMeeting.date)} meeting: ${pct0(fw.pHike)} hike · ${pct0(fw.pHold)} hold · ${pct0(fw.pCut)} cut. ${
@@ -290,6 +295,8 @@ function evalMargin(d) {
     value: formatBillions(d.latest),
     gauge: {
       met: pctDelta < 0,
+      // Any decline = met; a +5% rise or more = empty bar.
+      progress: pctDelta < 0 ? 1 : clamp01(1 - pctDelta / 5) * 0.99,
       text: pctDelta < 0 ? `Down ${n1(pctDelta)}% — any decline meets it` : `Up ${n1(pctDelta)}% — needs a decline`
     },
     takeaway: `${sign(pctDelta)}${pctDelta.toFixed(1)}% MoM${
@@ -318,6 +325,7 @@ function evalLeading(d) {
     value: d.topTicker,
     gauge: {
       met: lead >= 3,
+      progress: clamp01(lead / 3),
       text: lead >= 3 ? `${n1(lead - 3)}pp above the 3pp bar` : `${n1(3 - lead)}pp short of the 3pp bar`
     },
     takeaway: `${d.topName} ${fmt(lead)}pp vs SPY (3M).${defNote}`,
@@ -349,6 +357,7 @@ function evalEarnings(d) {
     value: `${(d.beatRate * 100).toFixed(0)}%`,
     gauge: {
       met: beats >= need,
+      progress: clamp01(beats / need),
       text: beats >= need
         ? `${beats} beats, ${need} needed (${beats - need} to spare)`
         : `${beats} beats, ${need} needed (${need - beats} short${missing ? `, ${missing} without data` : ""})`

@@ -79,43 +79,37 @@
 
     <!-- OVERVIEW -->
     <section class="panel active" id="panel-overview">
-      <div class="score-panel">
-        <div class="score-big">
-          <div class="score-number" id="score-number">–</div>
-          <div class="score-label">of 5</div>
+      <div class="hero" id="hero">
+        <div class="hero-ring" id="score-ring" aria-live="polite">
+          <svg viewBox="0 0 160 160" role="img" aria-label="Loading score">
+            <circle cx="80" cy="80" r="64" fill="none" stroke="rgba(139,148,158,0.18)" stroke-width="14"/>
+            <text x="80" y="86" text-anchor="middle" class="ring-score">–</text>
+          </svg>
         </div>
-        <div class="score-meta">
-          <div class="trigger-pills" id="trigger-pills">
-            <span class="trigger-pill loading"><span class="pill-dot"></span>VIX</span>
-            <span class="trigger-pill loading"><span class="pill-dot"></span>Fed</span>
-            <span class="trigger-pill loading"><span class="pill-dot"></span>Margin</span>
-            <span class="trigger-pill loading"><span class="pill-dot"></span>Sector</span>
-            <span class="trigger-pill loading"><span class="pill-dot"></span>Earnings</span>
-          </div>
+        <div class="hero-main">
           <div class="verdict" id="verdict">Awaiting data…</div>
-          <div class="score-log" id="score-log" hidden></div>
+          <div class="checklist" id="cards">
+          <div class="check-row skeleton"><span class="sk sk-dot"></span><div><div class="sk sk-title"></div><div class="sk sk-line sk-line-narrow"></div></div><div class="sk sk-bar"></div><div class="sk sk-value"></div></div>
+          <div class="check-row skeleton"><span class="sk sk-dot"></span><div><div class="sk sk-title"></div><div class="sk sk-line sk-line-narrow"></div></div><div class="sk sk-bar"></div><div class="sk sk-value"></div></div>
+          <div class="check-row skeleton"><span class="sk sk-dot"></span><div><div class="sk sk-title"></div><div class="sk sk-line sk-line-narrow"></div></div><div class="sk sk-bar"></div><div class="sk sk-value"></div></div>
+          <div class="check-row skeleton"><span class="sk sk-dot"></span><div><div class="sk sk-title"></div><div class="sk sk-line sk-line-narrow"></div></div><div class="sk sk-bar"></div><div class="sk sk-value"></div></div>
+          <div class="check-row skeleton"><span class="sk sk-dot"></span><div><div class="sk sk-title"></div><div class="sk sk-line sk-line-narrow"></div></div><div class="sk sk-bar"></div><div class="sk sk-value"></div></div>
+          </div>
         </div>
+        <div class="score-log" id="score-log" hidden></div>
       </div>
 
       <details class="collapsible intro-section" open>
         <summary><span class="collapsible-label">How this works</span><span class="collapsible-chev" aria-hidden="true">▾</span></summary>
         <div class="collapsible-body">
           <p>
-            Each indicator below is evaluated independently against a fixed rule. When all five conditions are met simultaneously — a rare event — the historical base rate for positive 12-month forward returns in the S&amp;P 500 is approximately <strong>80&ndash;85%</strong>, based on retrospective analysis of major historical alignments (e.g.&nbsp;2008&ndash;2009, March&nbsp;2020).
+            Each of the five conditions above is evaluated independently against a fixed rule. When all five conditions are met simultaneously — a rare event — the historical base rate for positive 12-month forward returns in the S&amp;P 500 is approximately <strong>80&ndash;85%</strong>, based on retrospective analysis of major historical alignments (e.g.&nbsp;2008&ndash;2009, March&nbsp;2020).
           </p>
           <p class="intro-note">
             This dashboard surfaces the framework's current state. It does not make recommendations and is not investment advice.
           </p>
         </div>
       </details>
-
-      <div class="cards" id="cards">
-        <div class="card skeleton"><div class="sk sk-title"></div><div class="sk sk-value"></div><div class="sk sk-line"></div><div class="sk sk-line sk-line-narrow"></div></div>
-        <div class="card skeleton"><div class="sk sk-title"></div><div class="sk sk-value"></div><div class="sk sk-line"></div><div class="sk sk-line sk-line-narrow"></div></div>
-        <div class="card skeleton"><div class="sk sk-title"></div><div class="sk sk-value"></div><div class="sk sk-line"></div><div class="sk sk-line sk-line-narrow"></div></div>
-        <div class="card skeleton"><div class="sk sk-title"></div><div class="sk sk-value"></div><div class="sk sk-line"></div><div class="sk sk-line sk-line-narrow"></div></div>
-        <div class="card skeleton"><div class="sk sk-title"></div><div class="sk sk-value"></div><div class="sk sk-line"></div><div class="sk sk-line sk-line-narrow"></div></div>
-      </div>
 
       <div class="history">
         <div class="history-header">
