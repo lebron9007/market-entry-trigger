@@ -969,6 +969,29 @@ table.earn-hist td, table.earn-hist th { padding: 7px 10px; }
 /* Data-quality notice shown above a tab's stats (amber accent). */
 .rule-box.notice { border-left-color: var(--yellow); margin-bottom: 16px; }
 
+/* Fed tab: FedWatch probability table */
+table.fedwatch-table td.num { white-space: nowrap; }
+.prob-bar {
+  display: inline-block;
+  width: 120px;
+  height: 8px;
+  margin-right: 10px;
+  vertical-align: middle;
+  background: rgba(139,148,158,0.15);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.prob-bar > span { display: block; height: 100%; background: var(--accent); }
+.context-heading {
+  margin: 28px 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+@media (max-width: 600px) { .prob-bar { width: 60px; } }
+
 /* Footer */
 .footer {
   margin-top: 32px;

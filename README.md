@@ -3,7 +3,7 @@
 A dashboard tracking five conditions that historically precede high-probability market entries:
 
 1. **VIX > 30** — fear-driven dislocation
-2. **Fed Funds trend** — flat or cutting (dot-plot path ≤ current rate)
+2. **No Fed hike ahead** — futures don't price a hike (≥50%) at the next FOMC meeting (CME FedWatch method)
 3. **Debt margin decreasing** — FINRA-reported leverage unwinding
 4. **Clear leading sector** — decisive thematic outperformance vs SPY
 5. **Earnings profile** — leading sector beats EPS during macro pain
@@ -21,7 +21,8 @@ Pure static HTML/CSS/JS — runs on GitHub Pages, Netlify, or Vercel free tier.
 | VIX | Yahoo `^VIX` via `/api/quotes` ([`datasets/finance-vix`](https://github.com/datasets/finance-vix) CSV fallback; freshest wins) | Auto, daily |
 | Sectors / constituents | Yahoo Finance (Stooq fallback) | Auto, daily |
 | Fed Funds | FRED public CSV or `data/fed.json` | Auto / FOMC days |
-| Dot plot | `data/dotplot.json` | Manual, quarterly |
+| Next-FOMC odds | `/api/fedwatch`: CME FedWatch method on 30-Day Fed Funds futures (Yahoo `ZQ*.CBT`), meeting dates from the Fed's calendar page | Auto, hourly cache |
+| Dot plot (context / fallback) | FRED SEP series; `data/dotplot.json` fallback | Auto, quarterly |
 | FINRA margin | `/api/finra-margin` (live); `data/finra_margin.json` fallback, refreshed by a daily GitHub Action | Auto, monthly |
 | Earnings | Yahoo `earningsHistory` via `/api/earnings` (no key; MarketBeat fallback) | Auto, cached 7 days |
 

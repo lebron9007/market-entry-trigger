@@ -18,6 +18,7 @@ export default async function handler(req, res) {
     { name: "Quotes (Yahoo)",            path: "/api/quotes?ticker=SPY&range=1mo" },
     { name: "VIX (Yahoo)",               path: "/api/quotes?ticker=%5EVIX&range=1mo" },
     { name: "Fed rate (FRED)",           path: "/api/fed-rate" },
+    { name: "FedWatch (ZQ futures)",     path: "/api/fedwatch" },
     { name: "Margin debt (Jina/FINRA)",  path: "/api/finra-margin" },
     { name: "Earnings (Yahoo)",          path: "/api/earnings?ticker=NVDA" }
   ];
@@ -32,8 +33,10 @@ export default async function handler(req, res) {
         const empty =
           j && ((Array.isArray(j.rows) && j.rows.length === 0) ||
                 (Array.isArray(j.history) && j.history.length === 0) ||
+                (Array.isArray(j.outcomes) && j.outcomes.length === 0) ||
                 (j.latest === undefined && j.rows === undefined &&
-                 j.history === undefined && j.upper === undefined));
+                 j.history === undefined && j.upper === undefined &&
+                 j.outcomes === undefined));
         // Freshness check for daily price series: a feed that still returns
         // 200 but stopped advancing is as broken as one that errors.
         let stale = "";

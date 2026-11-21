@@ -259,10 +259,41 @@ function evalVIX(d) {
   };
 }
 
+// "Dec 9" from "2026-12-09"
+function shortDate(iso) {
+  const p = parseDateLabel(iso);
+  if (!p) return iso;
+  const months = ["", "Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return `${months[parseInt(p.m)]} ${parseInt(p.d)}`;
+}
+const pct0 = p => `${Math.round(p * 100)}%`;
+
 function evalFed(d) {
   const upper = d.currentUpper ?? d.current;
   const lower = d.currentLow ?? upper;
   const midpoint = (upper + lower) / 2;
+
+  // Primary rule (CME FedWatch method): fail only if the futures market
+  // prices a rate HIKE as more likely than not at the next FOMC meeting.
+  // A hold or a cut passes.
+  const fw = d.fedwatch;
+  if (fw && Number.isFinite(fw.pHike)) {
+    const hikeLikely = fw.pHike >= 0.5;
+    const status = hikeLikely ? "red" : "green";
+    const ml = fw.mostLikely || {};
+    const word = ml.steps > 0 ? "Hike" : ml.steps < 0 ? "Cut" : "Hold";
+    return {
+      title: "Next FOMC", tab: "fed",
+      pass: !hikeLikely, status,
+      value: `${word} ${pct0(ml.prob ?? 0)}`,
+      takeaway: `${shortDate(fw.nextMeeting.date)} meeting: ${pct0(fw.pHike)} hike · ${pct0(fw.pHold)} hold · ${pct0(fw.pCut)} cut. ${
+        hikeLikely ? "Hike priced in — fails trigger." : "No hike expected — meets trigger."}`,
+      rule: "Trigger unless fed funds futures (CME FedWatch method) price a hike at the next FOMC meeting",
+      source: d.source,
+      asOf: fw.asOf || d.asOf || null
+    };
+  }
+  // Fallback when futures data is unavailable: the previous dot-plot rule.
   const projVals = Object.values(d.projections || {}).filter(v => typeof v === "number");
   // Trend "not upward" = no projection meaningfully above current midpoint.
   const anyHigher = projVals.some(v => v > midpoint + 0.10);
@@ -273,12 +304,13 @@ function evalFed(d) {
     : `${upper.toFixed(2)}%`;
   const minProj = projVals.length ? Math.min(...projVals) : midpoint;
   return {
-    title: "Fed Trend", tab: "fed",
+    title: "Next FOMC", tab: "fed",
     pass: status === "green", status,
     value: rangeStr,
-    takeaway: status === "green" ? `Dot plot signals cuts to ${minProj.toFixed(2)}%.` :
-              status === "yellow" ? "Dot plot signals hold." :
-              "Dot plot signals hikes ahead.",
+    takeaway: "FedWatch data unavailable; using dot plot: " + (
+              status === "green" ? `signals cuts to ${minProj.toFixed(2)}%.` :
+              status === "yellow" ? "signals hold." :
+              "signals hikes ahead."),
     rule: "Trigger when the dot-plot path is flat or cutting (no future-year median above current rate)",
     source: d.source,
     asOf: d.asOf || null
@@ -799,20 +831,67 @@ function renderFedDetail(d, evalResult) {
       return `<tr><td>${label}</td><td class="num">${v.toFixed(2)}%</td><td class="num ${cls}">${deltaStr}</td></tr>`;
     }).join("");
 
-  document.getElementById("fed-detail").innerHTML = `
-    <div class="detail-head">
-      <div>
-        <h2>Fed Trend ${statusPill(evalResult.status)}</h2>
-        <div class="sub">Federal Funds target range and FOMC dot-plot projections.</div>
-      </div>
-      <div class="updated">Rate as of ${d.asOf || "–"}${d.rateSource ? ` · ${d.rateSource}` : ""}</div>
+  const fw = d.fedwatch;
+  const fwSection = fw ? (() => {
+    const ml = fw.mostLikely || {};
+    const mlWord = ml.steps > 0 ? `Hike +${ml.changeBp}bp` : ml.steps < 0 ? `Cut ${ml.changeBp}bp` : "Hold";
+    const rows = [...fw.outcomes].sort((a, b) => b.steps - a.steps).map(o => {
+      const label = o.steps > 0 ? `Hike +${o.changeBp}bp` : o.steps < 0 ? `Cut ${o.changeBp}bp` : "Hold";
+      const cls = o.steps > 0 ? "miss" : o.steps < 0 ? "beat" : "";
+      return `<tr>
+        <td>${o.lower.toFixed(2)}–${o.upper.toFixed(2)}%</td>
+        <td class="${cls}">${label}</td>
+        <td class="num"><span class="prob-bar"><span style="width:${(o.prob * 100).toFixed(1)}%"></span></span>${(o.prob * 100).toFixed(1)}%</td>
+      </tr>`;
+    }).join("");
+    const methodText = {
+      "prior-month": `the ${fw.contracts.reference.symbol} contract (a month with no meeting) as the starting rate`,
+      "next-month":  `the ${fw.contracts.reference.symbol} contract (a month with no meeting) as the post-meeting rate`,
+      "effr":        "the latest effective fed funds rate as the starting rate"
+    }[fw.method] || "";
+    return `
+    <div class="stat-row">
+      <div class="stat"><div class="stat-label">Current target</div><div class="stat-value">${rangeStr}</div><div class="stat-sub">FOMC range</div></div>
+      <div class="stat"><div class="stat-label">Next meeting</div><div class="stat-value">${shortDate(fw.nextMeeting.date)}</div><div class="stat-sub">${fw.nextMeeting.label}</div></div>
+      <div class="stat"><div class="stat-label">Hike probability</div><div class="stat-value ${fw.pHike >= 0.5 ? "mom-down" : ""}">${(fw.pHike * 100).toFixed(1)}%</div><div class="stat-sub">fails trigger at ≥ 50%</div></div>
+      <div class="stat"><div class="stat-label">Most likely</div><div class="stat-value">${mlWord}</div><div class="stat-sub">${(ml.prob * 100).toFixed(1)}% probability</div></div>
     </div>
+    <div class="detail-section">
+      <h3>Target rate probabilities — ${fw.nextMeeting.label} meeting</h3>
+      <table class="data fedwatch-table">
+        <thead><tr><th>Target range</th><th>Outcome</th><th class="num">Probability</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <p class="chart-caption">CME FedWatch method: the ${fw.contracts.meetingMonth.symbol} futures price (${fw.contracts.meetingMonth.price.toFixed(3)}) implies an average rate of ${fw.contracts.meetingMonth.rate.toFixed(3)}% for the meeting month. Using ${methodText}, the implied rate after the meeting is ${fw.impliedEnd.toFixed(3)}% (${fw.expectedChangeBp >= 0 ? "+" : ""}${fw.expectedChangeBp}bp vs ${fw.impliedStart.toFixed(3)}%). Futures as of ${fw.asOf}. Figures can differ slightly from CME's site, which uses its own live prices.</p>
+    </div>`;
+  })() : `
+    <div class="rule-box notice">Fed funds futures data is unavailable right now, so this condition falls back to the FOMC dot plot below.</div>
     <div class="stat-row">
       <div class="stat"><div class="stat-label">Current target</div><div class="stat-value">${rangeStr}</div><div class="stat-sub">FOMC range (lower–upper)</div></div>
       <div class="stat"><div class="stat-label">Midpoint</div><div class="stat-value">${midpoint.toFixed(2)}%</div></div>
       <div class="stat"><div class="stat-label">Lowest projection</div><div class="stat-value">${Math.min(...Object.values(projections)).toFixed(2)}%</div><div class="stat-sub">implied trough</div></div>
       <div class="stat"><div class="stat-label">Direction</div><div class="stat-value">${(d.direction || "").toUpperCase()}</div></div>
+    </div>`;
+
+  document.getElementById("fed-detail").innerHTML = `
+    <div class="detail-head">
+      <div>
+        <h2>Next FOMC Meeting ${statusPill(evalResult.status)}</h2>
+        <div class="sub">Market-implied odds of a rate change at the next Fed meeting, from 30-Day Fed Funds futures (CME FedWatch method).</div>
+      </div>
+      <div class="updated">Rate as of ${d.asOf || "–"}${d.rateSource ? ` · ${d.rateSource}` : ""}</div>
     </div>
+    ${fwSection}
+    <div class="rule-box">
+      <strong>Rule:</strong> ${fw
+        ? "Trigger unless the futures market prices a rate hike as more likely than not (≥ 50%) at the next FOMC meeting. A hold or a cut meets the condition."
+        : "(Fallback) Trigger when the dot-plot path is flat or cutting — no future-year median above the current rate."} ${
+        evalResult.status === "green"
+          ? "No tightening ahead keeps financial conditions supportive for risk assets."
+          : "An expected hike tightens conditions and caps upside."
+      }
+    </div>
+    <h3 class="context-heading">Context (not scored)</h3>
     <div class="detail-section">
       <h3>Rate trajectory — actual + dot-plot projection</h3>
       <div class="detail-chart"><canvas id="fed-chart"></canvas></div>
@@ -823,15 +902,6 @@ function renderFedDetail(d, evalResult) {
         <thead><tr><th>Period</th><th class="num">Median</th><th class="num">vs current</th></tr></thead>
         <tbody>${projRows}</tbody>
       </table>
-    </div>
-    <div class="rule-box">
-      <strong>Rule:</strong> Trigger when the dot-plot path is flat or cutting — no future-year median sits above the current rate. ${
-        evalResult.status === "green"
-          ? "Cuts ahead expand financial conditions and historically support multiple expansion."
-          : evalResult.status === "yellow"
-          ? "Path on hold neither tightens nor loosens — neutral for risk assets."
-          : "Hikes ahead tighten conditions and cap upside."
-      }
     </div>
   `;
   drawFedTrajectoryChart("fed-chart", d.history, projections);
@@ -1781,6 +1851,20 @@ async function fetchFedSeries() {
   return { upper, lower, sourceLabel: "manual" };
 }
 
+// Next-FOMC probabilities from /api/fedwatch (CME FedWatch method applied to
+// 30-Day Fed Funds futures). Serverless-only, so unavailable in local dev.
+async function fetchFedWatch() {
+  const host = (typeof location !== "undefined" ? location.hostname : "") || "";
+  if (host === "localhost" || host === "127.0.0.1" || host === "") {
+    throw new Error("proxy unavailable in local dev");
+  }
+  const r = await fetch("/api/fedwatch");
+  if (!r.ok) throw new Error(`fedwatch HTTP ${r.status}`);
+  const j = await r.json();
+  if (!Array.isArray(j.outcomes) || !j.nextMeeting) throw new Error("fedwatch bad payload");
+  return j;
+}
+
 async function fetchFed_live() {
   const fed = await fetchFedSeries();
   const { upper, lower } = fed;
@@ -1807,8 +1891,13 @@ async function fetchFed_live() {
     projSource = `${formatAsOf(dot.meeting) || "manual"} SEP (data/dotplot.json)`;
   }
   const ye = projections[String(new Date().getFullYear())] ?? last.value;
+  const fedwatch = await fetchFedWatch().catch(e => {
+    console.warn("FedWatch unavailable, falling back to dot plot:", e.message || e);
+    return null;
+  });
 
   return {
+    fedwatch,
     current: last.value,
     currentUpper: last.value,
     currentLow:  lastLow.value,

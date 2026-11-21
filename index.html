@@ -148,9 +148,9 @@
             <p class="limitation"><strong>Limitation:</strong> A daily spike can occur for idiosyncratic reasons (single-stock events, earnings season). A sustained reading carries more signal than a one-day move.</p>
           </article>
           <article class="methodology-item">
-            <h3>2. Fed rate trajectory</h3>
-            <p class="rule">Trigger when no future-year FOMC dot-plot median sits above the current target rate.</p>
-            <p class="limitation"><strong>Limitation:</strong> Rate updates 8&times;/year on FOMC dates; dot plot refreshes only 4&times;/year (Mar/Jun/Sep/Dec). Reflects FOMC participants' expectations, not market pricing.</p>
+            <h3>2. No hike at the next FOMC meeting</h3>
+            <p class="rule">Trigger unless fed funds futures price a rate hike as more likely than not (&ge;50%) at the next FOMC meeting, using the CME FedWatch method. A hold or a cut meets the condition.</p>
+            <p class="limitation"><strong>Limitation:</strong> Market pricing, not a Fed commitment, and it can swing quickly on data releases. Looks only at the next meeting. Computed from futures quotes via Yahoo, so figures can differ slightly from CME's own FedWatch page. Falls back to the FOMC dot plot if futures data is unavailable.</p>
           </article>
           <article class="methodology-item">
             <h3>3. Margin debt decreasing</h3>
