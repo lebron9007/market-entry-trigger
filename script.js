@@ -688,7 +688,7 @@ function renderVIXDetail(d, evalResult) {
         <h2>VIX Stress ${statusPill(evalResult.status)}</h2>
         <div class="sub">Volatility index — measures S&P 500 option-implied fear over the next 30 days.</div>
       </div>
-      <div class="updated">Last quote: ${d.asOf}</div>
+      <div class="updated"${d.stale ? ' style="color:#d29922"' : ""}>Last quote: ${d.asOf}${d.feed ? ` · ${d.feed}` : ""}${d.stale ? " · stale" : ""}</div>
     </div>
     <div class="stat-row">
       <div class="stat"><div class="stat-label">Current</div><div class="stat-value">${d.value.toFixed(1)}</div></div>
@@ -1592,10 +1592,47 @@ document.addEventListener("click", (e) => {
 // ============================================================
 // Live fetchers
 // ============================================================
+// VIX is fetched from two sources in parallel and the one with the most
+// recent quote wins. Yahoo (^VIX via /api/quotes) is primary; the
+// datasets/finance-vix CSV is a fallback for local dev or a Yahoo outage.
+// (finance-vix silently stopped updating after 2026-09-22, which froze the
+// dashboard — picking the freshest source guards against that recurring.)
+const VIX_STALE_DAYS = 5; // > a long weekend + holiday without a new close
+
+async function fetchVIX_yahoo() {
+  const host = (typeof location !== "undefined" ? location.hostname : "") || "";
+  if (host === "localhost" || host === "127.0.0.1" || host === "") {
+    throw new Error("proxy unavailable in local dev");
+  }
+  const resp = await fetch("/api/quotes?ticker=%5EVIX&range=1y", { cache: "no-cache" });
+  if (!resp.ok) throw new Error(`Yahoo ^VIX HTTP ${resp.status}`);
+  const json = await resp.json();
+  const rows = (json.rows || [])
+    .map(r => ({ date: r.date, value: parseFloat(r.close.toFixed(2)) }))
+    .filter(r => r.date && !isNaN(r.value));
+  if (rows.length === 0) throw new Error("Yahoo ^VIX no valid rows");
+  const last = rows[rows.length - 1];
+  return { value: last.value, asOf: last.date, history: rows.slice(-252), feed: "Yahoo" };
+}
+
 async function fetchVIX_live() {
-  // Source: github.com/datasets/finance-vix — daily-refreshed CSV via raw.githubusercontent.com (CORS-friendly).
+  const results = await Promise.allSettled([fetchVIX_yahoo(), fetchVIX_csv()]);
+  const ok = results.filter(r => r.status === "fulfilled").map(r => r.value);
+  if (ok.length === 0) {
+    throw new Error(results.map(r => r.reason?.message || r.reason).join("; "));
+  }
+  // ISO dates compare correctly as strings. Ties go to Yahoo (listed first).
+  const best = ok.reduce((a, b) => (b.asOf > a.asOf ? b : a));
+  const ageDays = (Date.now() - new Date(best.asOf + "T00:00:00Z").getTime()) / 86400000;
+  const stale = ageDays > VIX_STALE_DAYS;
+  if (stale) console.warn(`[VIX] freshest quote is ${best.asOf} (${ageDays.toFixed(0)} days old)`);
+  return { ...best, stale, source: "live" };
+}
+
+async function fetchVIX_csv() {
+  // Source: github.com/datasets/finance-vix — CSV via raw.githubusercontent.com (CORS-friendly).
   // CSV columns: Date,VIX Open,VIX High,VIX Low,VIX Close
-  const url = "https://raw.githubusercontent.com/datasets/finance-vix/master/data/vix-daily.csv";
+  const url = "https://raw.githubusercontent.com/datasets/finance-vix/main/data/vix-daily.csv";
   const resp = await fetch(url, { cache: "no-cache" });
   if (!resp.ok) throw new Error(`finance-vix HTTP ${resp.status}`);
   const text = await resp.text();
@@ -1611,7 +1648,7 @@ async function fetchVIX_live() {
 
   const last = rows[rows.length - 1];
   const history = rows.slice(-252); // ~1 year of trading days
-  return { value: last.value, asOf: last.date, history, source: "live" };
+  return { value: last.value, asOf: last.date, history, feed: "finance-vix" };
 }
 
 async function fetchFRED_csv(seriesId) {

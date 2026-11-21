@@ -18,7 +18,7 @@ Pure static HTML/CSS/JS — runs on GitHub Pages, Netlify, or Vercel free tier.
 
 | Trigger | Source | Update |
 |---|---|---|
-| VIX | [`datasets/finance-vix`](https://github.com/datasets/finance-vix) CSV | Auto, daily |
+| VIX | Yahoo `^VIX` via `/api/quotes` ([`datasets/finance-vix`](https://github.com/datasets/finance-vix) CSV fallback; freshest wins) | Auto, daily |
 | Sectors / constituents | Yahoo Finance (Stooq fallback) | Auto, daily |
 | Fed Funds | FRED public CSV or `data/fed.json` | Auto / FOMC days |
 | Dot plot | `data/dotplot.json` | Manual, quarterly |

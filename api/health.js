@@ -19,6 +19,7 @@ export default async function handler(req, res) {
 
   const checks = [
     { name: "Quotes (Yahoo)",            path: "/api/quotes?ticker=SPY&range=1mo" },
+    { name: "VIX (Yahoo)",               path: "/api/quotes?ticker=%5EVIX&range=1mo" },
     { name: "Fed rate (FRED)",           path: "/api/fed-rate" },
     { name: "Margin debt (Jina/FINRA)",  path: "/api/finra-margin" },
     { name: "Earnings (Jina/MarketBeat)", path: "/api/earnings?ticker=NVDA" }
@@ -36,11 +37,20 @@ export default async function handler(req, res) {
                 (Array.isArray(j.history) && j.history.length === 0) ||
                 (j.latest === undefined && j.rows === undefined &&
                  j.history === undefined && j.upper === undefined));
+        // Freshness check for daily price series: a feed that still returns
+        // 200 but stopped advancing is as broken as one that errors.
+        let stale = "";
+        const lastDate = Array.isArray(j?.rows) && j.rows.length
+          ? j.rows[j.rows.length - 1].date : null;
+        if (lastDate) {
+          const ageDays = (Date.now() - new Date(lastDate + "T00:00:00Z").getTime()) / 86400000;
+          if (ageDays > 5) stale = `latest quote ${lastDate} (${ageDays.toFixed(0)} days old)`;
+        }
         return {
           name: c.name,
-          status: empty ? "degraded" : "ok",
+          status: empty || stale ? "degraded" : "ok",
           code: r.status,
-          detail: empty ? "empty payload" : ""
+          detail: empty ? "empty payload" : stale
         };
       }
       const body = await r.text().catch(() => "");
