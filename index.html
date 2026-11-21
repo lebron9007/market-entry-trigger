@@ -99,7 +99,7 @@
         <div class="score-log" id="score-log" hidden></div>
       </div>
 
-      <details class="collapsible intro-section" open>
+      <details class="collapsible intro-section">
         <summary><span class="collapsible-label">How this works</span><span class="collapsible-chev" aria-hidden="true">▾</span></summary>
         <div class="collapsible-body">
           <p>
@@ -115,9 +115,12 @@
         <div class="history-header">
           <div class="history-title">
             <h2>Historical Alignment</h2>
-            <div class="range-toggle" id="history-range" role="group" aria-label="Chart range">
+            <div class="range-toggle" id="history-range" role="group" aria-label="Chart timeframe">
+              <button type="button" data-range="1y">1Y</button>
+              <button type="button" data-range="3y">3Y</button>
+              <button type="button" data-range="5y">5Y</button>
               <button type="button" data-range="10y" class="active">10Y</button>
-              <button type="button" data-range="max">Since 2007</button>
+              <button type="button" data-range="all" title="Since 2007">All</button>
             </div>
           </div>
           <div class="legend">
@@ -133,7 +136,7 @@
         <div class="history-table-wrap" id="history-table"></div>
       </div>
 
-      <details class="collapsible methodology-section" open>
+      <details class="collapsible methodology-section">
         <summary><span class="collapsible-label">The five conditions</span><span class="collapsible-chev" aria-hidden="true">▾</span></summary>
         <p class="section-intro">Each indicator's rule and known limitations.</p>
         <div class="methodology-grid">
@@ -165,7 +168,7 @@
         </div>
       </details>
 
-      <details class="collapsible disclaimer" open>
+      <details class="collapsible disclaimer">
         <summary><span class="collapsible-label">Disclaimers</span><span class="collapsible-chev" aria-hidden="true">▾</span></summary>
         <div class="collapsible-body">
           <p>This dashboard is provided for informational and educational purposes only and does not constitute investment, legal, or tax advice. Past performance is not indicative of future results. The 80&ndash;85% historical base rate is an observation drawn from a small number of historical alignments and should not be interpreted as a probability for any specific future period.</p>

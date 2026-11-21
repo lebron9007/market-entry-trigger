@@ -240,9 +240,9 @@ function buildMockEarnings() {
 const STATUS_WORD = { green: "PASS", yellow: "WATCH", red: "FAIL" };
 const STATUS_ICON = { green: "✓", yellow: "!", red: "✕" };
 
-// One row per condition: status, name + takeaway, progress toward the
-// trigger line (with the gauge text), and the current value. Click opens
-// that condition's tab.
+// One line per condition: status icon, name, progress bar toward the
+// trigger, current value. Detail (gap to trigger, takeaway, data date) is
+// in the hover tooltip and on the condition's own tab. Click opens the tab.
 function renderCards(results) {
   const root = document.getElementById("cards");
   root.innerHTML = "";
@@ -252,25 +252,23 @@ function renderCards(results) {
     el.dataset.tab = r.tab;
     el.setAttribute("role", "button");
     el.tabIndex = 0;
-    el.setAttribute("aria-label", `${r.title}: ${STATUS_WORD[r.status]}, ${r.value}. Open details`);
 
-    const fresh = r.source === "mock"
-      ? `<span class="check-mock">⚠ Sample data — live source unavailable</span>`
-      : (r.asOf ? `<span class="check-asof">as of ${formatAsOf(r.asOf)}</span>` : "");
     const g = r.gauge;
-    const progress = g && Number.isFinite(g.progress)
-      ? `<div class="pbar" aria-hidden="true"><i style="width:${(g.progress * 100).toFixed(0)}%"></i></div>
-         <div class="check-gauge">${g.text}</div>`
-      : `<div class="check-gauge muted">${g ? g.text : "—"}</div>`;
+    const detail = [
+      g && g.text,
+      r.takeaway,
+      r.source === "mock" ? "Sample data — live source unavailable" : (r.asOf ? `As of ${formatAsOf(r.asOf)}` : "")
+    ].filter(Boolean).join("\n");
+    el.title = detail;
+    el.setAttribute("aria-label", `${r.title}: ${STATUS_WORD[r.status]}, ${r.value}. ${g ? g.text : ""}`);
 
+    const pct = g && Number.isFinite(g.progress) ? (g.progress * 100).toFixed(0) : null;
     el.innerHTML = `
       <span class="check-icon" aria-hidden="true">${STATUS_ICON[r.status]}</span>
-      <div class="check-name">
-        <div class="check-title">${r.title} <span class="status-pill ${r.status}">${STATUS_WORD[r.status]}</span></div>
-        <div class="check-sub"><span class="check-take">${r.takeaway}</span> ${fresh}</div>
-      </div>
-      <div class="check-progress">${progress}</div>
-      <div class="check-value">${r.value}</div>
+      <span class="check-title">${r.title}${r.source === "mock" ? ` <span class="check-mock">sample</span>` : ""}</span>
+      <span class="check-progress">${pct !== null
+        ? `<span class="pbar"><i style="width:${pct}%"></i></span>` : ""}</span>
+      <span class="check-value">${r.value}</span>
       <span class="check-chev" aria-hidden="true">›</span>
     `;
     el.addEventListener("click", () => activateTab(r.tab));
@@ -386,16 +384,17 @@ function scoreRadius(s) {
 // 10y is short enough that the 2020 COVID crash, 2022 bear, and recent drawdowns
 // each have visible drama; max range made everything look like a smooth line.
 const _spyHistoryCache = {};
-async function fetchSpyHistory(range = "10y") {
+async function fetchSpyHistory(range = "10y", interval = "1wk") {
   const host = (typeof location !== "undefined" ? location.hostname : "") || "";
   if (host === "localhost" || host === "127.0.0.1" || host === "") return null;
-  if (_spyHistoryCache[range]) return _spyHistoryCache[range];
+  const key = `${range}|${interval}`;
+  if (_spyHistoryCache[key]) return _spyHistoryCache[key];
   try {
-    const r = await fetch(`/api/quotes?ticker=SPY&range=${range}&interval=1wk`);
+    const r = await fetch(`/api/quotes?ticker=SPY&range=${range}&interval=${interval}`);
     if (!r.ok) return null;
     const j = await r.json();
-    if (!j.rows || j.rows.length < 100) return null;
-    _spyHistoryCache[range] = j.rows;
+    if (!j.rows || j.rows.length < 20) return null;
+    _spyHistoryCache[key] = j.rows;
     return j.rows;
   } catch (_) {
     return null;
@@ -461,7 +460,8 @@ function renderAlignmentTable(data /* spyRows */) {
       </tr>`;
   }).join("");
 
-  wrap.innerHTML = notable.length === 0 ? "" : `
+  wrap.innerHTML = notable.length === 0
+    ? `<p class="history-empty">No 4/5 or 5/5 alignments in this timeframe.</p>` : `
     <div class="history-table-scroll">
       <table class="data history-table">
         <thead>
@@ -485,19 +485,29 @@ async function renderHistory(points, currentDate, currentScore) {
   if (lastIso !== curIso) data.push({ date: curIso, score: currentScore, note: "Today" });
 
   const peaks = data.filter(p => p.score === 5).map(p => p.date);
-  const peakNote = peaks.length
-    ? `Last 5/5 alignment: ${peaks[peaks.length - 1]}. Prior peaks: ${peaks.slice(0, -1).join(", ") || "none"}.`
-    : "No 5/5 alignments in this window.";
-  document.getElementById("history-note").textContent =
-    `${peakNote} · Historical scores: VIX, Fed rate, and sector leadership computed from real data (CBOE VIX, FRED, sector-ETF prices). Margin debt and earnings use proxies (SPY drawdown depth; growth-leadership during stress) since FINRA monthly history and historical EPS aren't freely backfillable. The live dashboard uses direct data for all five.`;
+  const noteEl = document.getElementById("history-note");
+  noteEl.textContent = peaks.length
+    ? `Last full 5/5 alignment: ${formatAsOf(peaks[peaks.length - 1])}. Past scores are reconstructed from historical data.`
+    : "Past scores are reconstructed from historical data.";
+  noteEl.title = "VIX, Fed rate and sector leadership use real historical data (CBOE VIX, FRED, sector-ETF prices). " +
+    "Margin debt and earnings use proxies (SPY drawdown depth; growth leadership during stress) because FINRA monthly " +
+    "history and historical EPS aren't freely available. The live score uses direct data for all five.";
 
-  renderAlignmentTable(data);
   _historyData = data;
   wireHistoryRange();
   await drawHistoryChart(_historyRange);
 }
 
-// Historical Alignment chart, redrawn when the 10Y / Since-2007 toggle changes.
+// Historical Alignment chart, redrawn when the timeframe toggle changes.
+// range/interval pick the SPY series from /api/quotes; years sets the window
+// (null = everything since the first alignment record, 2007).
+const HISTORY_TIMEFRAMES = {
+  "1y":  { range: "1y",  interval: "1d",  years: 1,    unit: "month" },
+  "3y":  { range: "5y",  interval: "1wk", years: 3,    unit: "quarter" },
+  "5y":  { range: "5y",  interval: "1wk", years: 5,    unit: "year" },
+  "10y": { range: "10y", interval: "1wk", years: 10,   unit: "year" },
+  "all": { range: "max", interval: "1wk", years: null, unit: "year" }
+};
 let _historyData = [];
 let _historyRange = "10y";
 let _historyChart = null;
@@ -515,13 +525,22 @@ function wireHistoryRange() {
 }
 
 async function drawHistoryChart(range) {
-  const data = _historyData;
+  const tf = HISTORY_TIMEFRAMES[range] || HISTORY_TIMEFRAMES["10y"];
+  const DAY = 1000 * 60 * 60 * 24;
+  const firstAlignMs = new Date(`${_historyData[0].date}-01`).getTime();
+  const windowStart = tf.years
+    ? Math.max(Date.now() - tf.years * 365.25 * DAY, firstAlignMs - 90 * DAY)
+    : firstAlignMs - 90 * DAY;
+  // Alignment records inside the window (a month counts if it ends after the start).
+  const data = _historyData.filter(p => new Date(`${p.date}-01`).getTime() >= windowStart - 31 * DAY);
+  renderAlignmentTable(data);
+
   const canvas = document.getElementById("history-chart");
   if (_historyChart) { _historyChart.destroy(); _historyChart = null; }
 
   // Pull SPY backdrop. If unavailable (local dev, proxy down), fall back to
   // the simpler score-bars chart so the panel never goes empty.
-  const spyRows = await fetchSpyHistory(range);
+  const spyRows = await fetchSpyHistory(tf.range, tf.interval);
   if (!spyRows) {
     document.getElementById("history-range")?.setAttribute("hidden", "");
     _historyChart = new Chart(canvas, {
@@ -550,18 +569,16 @@ async function drawHistoryChart(range) {
     return;
   }
 
-  // Window: from the first alignment date (minus a quarter of padding), or
-  // the start of the SPY series if that's later (10Y view).
-  const firstAlignDate = new Date(`${data[0].date}-01`).getTime();
-  const spyClipped = spyRows.filter(r => new Date(r.date).getTime() >= firstAlignDate - 1000 * 60 * 60 * 24 * 90);
+  const spyClipped = spyRows.filter(r => new Date(r.date).getTime() >= windowStart);
+  if (spyClipped.length < 2) return;
   const spyData = spyClipped.map(r => ({ x: r.date, y: r.close }));
-  const windowStart = new Date(spyClipped[0].date).getTime() - 1000 * 60 * 60 * 24 * 31;
+  const spyStart = new Date(spyClipped[0].date).getTime() - 31 * DAY;
 
   // Place each alignment on the SPY line at the closest weekly close. Skip
   // alignments that fall before the window — "nearest" would otherwise pile
   // them all onto the first point of the chart.
   const markers = data.map(p => {
-    if (new Date(`${p.date}-01`).getTime() < windowStart) return null;
+    if (new Date(`${p.date}-01`).getTime() < spyStart) return null;
     const nearest = nearestSpyAtDate(spyClipped, p.date);
     if (!nearest) return null;
     return {
@@ -649,9 +666,9 @@ async function drawHistoryChart(range) {
         x: {
           type: "time",
           time: {
-            unit: "year",
+            unit: tf.unit,
             tooltipFormat: "MMM yyyy",
-            displayFormats: { year: "yyyy" }
+            displayFormats: { month: "MMM yy", quarter: "QQQ yyyy", year: "yyyy" }
           },
           ticks: { color: "#8b949e", maxRotation: 0, autoSkip: true, maxTicksLimit: 12 },
           grid: { display: false }
