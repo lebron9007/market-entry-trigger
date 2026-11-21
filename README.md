@@ -39,9 +39,11 @@ Pure static HTML/CSS/JS — runs on GitHub Pages, Netlify, or Vercel free tier.
 
 `.github/workflows/daily-score.yml` runs `scripts/snapshot.mjs` every
 weekday at 22:15 UTC (after the US close). It scores the live data with
-`core.js`, appends the day to `data/score_log.json` (shown as the "Daily log"
-strip on the dashboard), and, when the score differs from the previous
-complete day, raises an alert:
+`core.js` and appends the day to `data/score_log.json` (shown as the "Daily log"
+strip on the dashboard).
+
+Alerts are **off** by default. With `ALERTS_ENABLED: "true"` in the workflow,
+a score that differs from the previous complete day raises an alert:
 
 - opens a GitHub issue in this repo (GitHub emails the repo owner), and
 - posts to Slack/Discord if an `ALERT_WEBHOOK` **repository secret** is set.

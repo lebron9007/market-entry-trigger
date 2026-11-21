@@ -1,7 +1,10 @@
 # Logs the dashboard's live 5-condition score once per trading day to
-# data/score_log.json, and raises an alert when the score changes:
-#   * opens a GitHub issue in this repo (GitHub emails the repo owner), and
-#   * POSTs to the ALERT_WEBHOOK repo secret (Slack/Discord), if one is set.
+# data/score_log.json.
+#
+# Alerts on score changes are currently OFF. To turn them on, set
+# ALERTS_ENABLED to "true" below; the job will then
+#   * open a GitHub issue in this repo (GitHub emails the repo owner), and
+#   * POST to the ALERT_WEBHOOK repo secret (Slack/Discord), if one is set.
 #
 # Scoring uses core.js — the same rules the dashboard runs in the browser.
 
@@ -14,7 +17,7 @@ on:
 
 permissions:
   contents: write
-  issues: write
+  issues: write   # only used when ALERTS_ENABLED is "true"
 
 concurrency:
   group: daily-score
@@ -33,6 +36,7 @@ jobs:
 
       - name: Score today and update the log
         env:
+          ALERTS_ENABLED: "false"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ALERT_WEBHOOK: ${{ secrets.ALERT_WEBHOOK }}
         run: node scripts/snapshot.mjs

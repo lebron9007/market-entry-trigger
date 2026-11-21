@@ -239,6 +239,9 @@ if (!DRY_RUN) {
   }, null, 2) + "\n");
   console.log(`Logged ${entries.length} day(s) to data/score_log.json.`);
 
-  // Alert only on a real change between two complete days.
-  if (prev && !cur.partial && prev.score !== cur.score) await sendAlerts(prev, cur);
+  // Alert only on a real change between two complete days — and only when
+  // alerts are switched on (ALERTS_ENABLED=true in the workflow).
+  const changed = prev && !cur.partial && prev.score !== cur.score;
+  if (changed && process.env.ALERTS_ENABLED === "true") await sendAlerts(prev, cur);
+  else if (changed) console.log(`Score changed ${prev.score} → ${cur.score}; alerts are off (ALERTS_ENABLED != true).`);
 }
