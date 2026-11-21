@@ -16,6 +16,10 @@ const SECTOR_ETFS = {
   "XLC":  "Communications"
 };
 
+// Growth/cyclical sectors eligible to be the "leading sector". Must match
+// GROWTH_SECTORS in scripts/backfill_history.py so live and history agree.
+const GROWTH_SECTORS = new Set(["XLK", "SMH", "XLY", "XLC", "XLF", "XLI"]);
+
 // Approximate market caps in $B. Order-of-magnitude only; refresh annually.
 // Source: rounded from public quotes — does not need to be precise.
 const MARKET_CAPS = {
@@ -167,13 +171,7 @@ const MOCK = {
     source: "mock"
   },
   leadingSector: {
-    topTicker: "SMH", topName: "Semiconductors",
-    absReturn3M: 17.4,
-    relStrength3M: 12.4,
-    spy3M: 5.0,
-    runnerUp: { ticker: "XLK", name: "Technology", absReturn3M: 12.1, relStrength3M: 7.1 },
-    decisive: true,
-    allRanked: [
+    ...summarizeSectors([
       { ticker: "SMH",  name: "Semiconductors", absReturn3M: 17.4, relStrength3M: 12.4 },
       { ticker: "XLK",  name: "Technology",     absReturn3M: 12.1, relStrength3M:  7.1 },
       { ticker: "XLC",  name: "Communications", absReturn3M:  9.2, relStrength3M:  4.2 },
@@ -186,7 +184,7 @@ const MOCK = {
       { ticker: "XLRE", name: "Real Estate",    absReturn3M:  1.8, relStrength3M: -3.2 },
       { ticker: "XLU",  name: "Utilities",      absReturn3M:  1.2, relStrength3M: -3.8 },
       { ticker: "XLE",  name: "Energy",         absReturn3M: -0.1, relStrength3M: -5.1 }
-    ],
+    ].map(s => ({ ...s, growth: GROWTH_SECTORS.has(s.ticker) })), 5.0),
     source: "mock"
   },
   earnings: buildMockEarnings()
@@ -222,8 +220,10 @@ function buildMockEarnings() {
   return {
     sectorTicker: "SMH",
     beatRate: beats / perTicker.length,
+    beats,
     quartersUpward: 3,
     sample: perTicker.length,
+    universe: perTicker.length,
     perTicker,
     quarterlyTrend: buildEarningsTrend(perTicker),
     source: "mock"
@@ -270,23 +270,31 @@ function evalFed(d) {
               status === "yellow" ? "Dot plot signals hold." :
               "Dot plot signals hikes ahead.",
     rule: "Trigger when the dot-plot path is flat or cutting (no future-year median above current rate)",
-    source: d.source
+    source: d.source,
+    asOf: d.asOf || null
   };
 }
 
 function evalMargin(d) {
+  // Matches the documented rule and scripts/backfill_history.py: any
+  // month-over-month decrease passes. A rise under 1% is "watch" (near flat).
   const delta = d.latest - d.prior;
   const pctDelta = (delta / d.prior) * 100;
-  const status = pctDelta < -1 ? "green" : pctDelta < 0 ? "yellow" : "red";
+  const status = pctDelta < 0 ? "green" : pctDelta < 1 ? "yellow" : "red";
+  const h = d.history || [];
+  const threeAgo = h.length >= 4 ? h[h.length - 4].value : null;
+  const pct3M = threeAgo ? ((d.latest - threeAgo) / threeAgo) * 100 : null;
+  const sign = v => (v >= 0 ? "+" : "");
   return {
     title: "Margin Debt", tab: "margin",
     pass: status === "green", status,
     value: `${d.unitsLabel}${d.latest.toFixed(0)}`,
-    takeaway: `${pctDelta >= 0 ? "+" : ""}${pctDelta.toFixed(1)}% MoM. ${
+    takeaway: `${sign(pctDelta)}${pctDelta.toFixed(1)}% MoM${
+      pct3M != null ? `, ${sign(pct3M)}${pct3M.toFixed(1)}% over 3M` : ""}. ${
       status === "green" ? "Decreasing — meets trigger." :
-      status === "yellow" ? "Slight decrease; below margin." :
+      status === "yellow" ? "Roughly flat — not decreasing." :
       "Increasing — fails trigger."}`,
-    rule: "Trigger when FINRA margin debt is decreasing",
+    rule: "Trigger when FINRA margin debt is lower than the prior month",
     source: d.source,
     asOf: d.asOf || null
   };
@@ -297,25 +305,45 @@ function evalLeading(d) {
   // No runner-up comparison needed — a clear outperformer is the signal.
   const lead = d.relStrength3M;
   const status = lead >= 3 ? "green" : lead >= 1 ? "yellow" : "red";
+  const fmt = v => `${v >= 0 ? "+" : ""}${v.toFixed(1)}`;
+  const defNote = d.defensiveLeader
+    ? ` ${d.defensiveLeader.ticker} (defensive) leads overall at ${fmt(d.defensiveLeader.relStrength3M)}pp.`
+    : "";
   return {
     title: "Leading Sector", tab: "sectors",
     pass: status === "green", status,
     value: d.topTicker,
-    takeaway: `${d.topName} ${lead >= 0 ? "+" : ""}${lead.toFixed(1)}% vs SPY (3M).`,
-    rule: "Trigger when a sector clearly outperforms the S&P 500 (≥3pp over 3 months)",
-    source: d.source
+    takeaway: `${d.topName} ${fmt(lead)}pp vs SPY (3M).${defNote}`,
+    rule: "Trigger when a growth sector clearly outperforms the S&P 500 (≥3pp over 3 months)",
+    source: d.source,
+    asOf: d.asOf || null
   };
 }
 
 function evalEarnings(d) {
-  const status = d.beatRate >= 0.60 ? "green" : d.beatRate >= 0.50 ? "yellow" : "red";
+  // The rule is "≥60% of the top-N constituents beat". When some constituents
+  // have no data, only pass if the confirmed beats alone clear 60% of N, and
+  // only fail outright if even counting every missing one as a beat can't.
+  const universe = d.universe ?? d.sample;
+  const beats    = d.beats ?? Math.round(d.beatRate * d.sample);
+  const missing  = Math.max(0, universe - d.sample);
+  const need     = Math.ceil(0.6 * universe);
+  const undetermined = beats < need && beats + missing >= need && missing > 0;
+  const status = beats >= need ? "green"
+               : undetermined ? "yellow"
+               : d.beatRate >= 0.50 ? "yellow" : "red";
+  const takeaway = missing > 0
+    ? `${d.sectorTicker}: ${beats} of ${d.sample} reported beat EPS; ${missing} of ${universe} have no data.${
+        undetermined ? " Not enough data to confirm." : ""}`
+    : `${d.sectorTicker} top-${universe}: ${beats} of ${universe} beat EPS. ${d.quartersUpward}/4 quarters trending up.`;
   return {
     title: "Earnings Profile", tab: "earnings",
     pass: status === "green", status,
     value: `${(d.beatRate * 100).toFixed(0)}%`,
-    takeaway: `${d.sectorTicker} top-${d.sample} beating EPS. ${d.quartersUpward}/4 quarters trending up.`,
-    rule: "Trigger when leading sector beats EPS ≥60% during macro pain",
-    source: d.source
+    takeaway,
+    rule: `Trigger when ≥60% of the leading sector's top-${universe} beat EPS`,
+    source: d.source,
+    asOf: d.asOf || null
   };
 }
 
@@ -729,7 +757,7 @@ function renderFedDetail(d, evalResult) {
                        (delta > 0 ? `+${(delta * 100).toFixed(0)}bps` : `${(delta * 100).toFixed(0)}bps`);
       const cls = delta < -0.05 ? "beat" : delta > 0.05 ? "miss" : "";
       const label = k === "long_run" ? "Long run" : `${k} year-end`;
-      return `<tr><td>${label}</td><td class="num">${v.toFixed(3)}%</td><td class="num ${cls}">${deltaStr}</td></tr>`;
+      return `<tr><td>${label}</td><td class="num">${v.toFixed(2)}%</td><td class="num ${cls}">${deltaStr}</td></tr>`;
     }).join("");
 
   document.getElementById("fed-detail").innerHTML = `
@@ -738,11 +766,11 @@ function renderFedDetail(d, evalResult) {
         <h2>Fed Trend ${statusPill(evalResult.status)}</h2>
         <div class="sub">Federal Funds target range and FOMC dot-plot projections.</div>
       </div>
-      <div class="updated">FRED DFEDTARU · projections from data/dotplot.json</div>
+      <div class="updated">Rate as of ${d.asOf || "–"}${d.rateSource ? ` · ${d.rateSource}` : ""}</div>
     </div>
     <div class="stat-row">
       <div class="stat"><div class="stat-label">Current target</div><div class="stat-value">${rangeStr}</div><div class="stat-sub">FOMC range (lower–upper)</div></div>
-      <div class="stat"><div class="stat-label">Midpoint</div><div class="stat-value">${midpoint.toFixed(3)}%</div></div>
+      <div class="stat"><div class="stat-label">Midpoint</div><div class="stat-value">${midpoint.toFixed(2)}%</div></div>
       <div class="stat"><div class="stat-label">Lowest projection</div><div class="stat-value">${Math.min(...Object.values(projections)).toFixed(2)}%</div><div class="stat-sub">implied trough</div></div>
       <div class="stat"><div class="stat-label">Direction</div><div class="stat-value">${(d.direction || "").toUpperCase()}</div></div>
     </div>
@@ -751,7 +779,7 @@ function renderFedDetail(d, evalResult) {
       <div class="detail-chart"><canvas id="fed-chart"></canvas></div>
     </div>
     <div class="detail-section">
-      <h3>Dot-plot medians (March 2026 SEP)</h3>
+      <h3>Dot-plot medians (${d.projSource || "FOMC SEP"})</h3>
       <table class="data">
         <thead><tr><th>Period</th><th class="num">Median</th><th class="num">vs current</th></tr></thead>
         <tbody>${projRows}</tbody>
@@ -907,7 +935,7 @@ function drawFedTrajectoryChart(canvasId, history, projections) {
               const v = items[0].parsed.x;
               return v ? toFullDate(new Date(v).toISOString().slice(0, 10)) : "";
             },
-            label: (item) => `${item.dataset.label}: ${item.parsed.y.toFixed(3)}%`
+            label: (item) => `${item.dataset.label}: ${item.parsed.y.toFixed(2)}%`
           }
         }
       },
@@ -949,6 +977,8 @@ function renderMarginDetail(d, evalResult) {
   const peak   = h.reduce((a, b) => a.value > b.value ? a : b, h[0] || { value: 0 });
   const momPct = ((latest.value - prior.value) / prior.value * 100).toFixed(1);
   const yoyPct = yrAgo ? ((latest.value - yrAgo.value) / yrAgo.value * 100).toFixed(1) : "–";
+  const threeAgo = h[h.length - 4];
+  const m3Pct = threeAgo ? ((latest.value - threeAgo.value) / threeAgo.value * 100).toFixed(1) : "–";
   const fromPeakPct = peak ? ((latest.value - peak.value) / peak.value * 100).toFixed(1) : "–";
 
   document.getElementById("margin-detail").innerHTML = `
@@ -961,7 +991,8 @@ function renderMarginDetail(d, evalResult) {
     </div>
     <div class="stat-row">
       <div class="stat"><div class="stat-label">Latest</div><div class="stat-value">${d.unitsLabel}${latest.value.toFixed(0)}</div></div>
-      <div class="stat"><div class="stat-label">MoM</div><div class="stat-value">${momPct >= 0 ? "+" : ""}${momPct}%</div></div>
+      <div class="stat"><div class="stat-label">MoM</div><div class="stat-value">${momPct >= 0 ? "+" : ""}${momPct}%</div><div class="stat-sub">vs ${prior.month}</div></div>
+      <div class="stat"><div class="stat-label">3-month</div><div class="stat-value">${m3Pct === "–" ? "–" : (m3Pct >= 0 ? "+" : "") + m3Pct + "%"}</div><div class="stat-sub">${threeAgo ? "vs " + threeAgo.month : "trend"}</div></div>
       <div class="stat"><div class="stat-label">YoY</div><div class="stat-value">${yoyPct === "–" ? "–" : (yoyPct >= 0 ? "+" : "") + yoyPct + "%"}</div></div>
       <div class="stat"><div class="stat-label">From peak</div><div class="stat-value">${fromPeakPct >= 0 ? "+" : ""}${fromPeakPct}%</div><div class="stat-sub">peak: ${d.unitsLabel}${peak.value.toFixed(0)} (${peak.month})</div></div>
     </div>
@@ -974,7 +1005,7 @@ function renderMarginDetail(d, evalResult) {
       <div class="detail-chart"><canvas id="margin-chart"></canvas></div>
     </div>
     <div class="rule-box">
-      <strong>Rule:</strong> Trigger when margin debt is decreasing month-over-month. Falling margin balances signal forced de-leveraging — investors are being squeezed out, and that capitulation is historically a contrarian buy signal.
+      <strong>Rule:</strong> Trigger when margin debt is lower than the prior month (a rise under 1% shows as Watch). The 3-month and YoY figures show whether a dip is real de-leveraging or a pause in a rising trend. Falling margin balances signal forced de-leveraging — investors are being squeezed out, and that capitulation is historically a contrarian buy signal.
     </div>
   `;
   drawBarChart("margin-chart", h.map(p => p.month), h.map(p => p.value), {
@@ -1000,7 +1031,7 @@ function _computeReturns(rows) {
   if (ytdRows.length >= 2) {
     ytd = ((ytdRows[ytdRows.length - 1].close - ytdRows[0].close) / ytdRows[0].close) * 100;
   }
-  return { ytd, oneY, prices: rows.map(r => r.close) };
+  return { ytd, oneY, prices: rows.map(r => r.close), lastDate: rows[rows.length - 1].date };
 }
 
 // Yahoo Finance chart API — returns split- and dividend-adjusted closes.
@@ -1020,8 +1051,8 @@ async function fetchYahooHistory(ticker) {
     date: new Date(t * 1000).toISOString().slice(0, 10),
     close: adj[i]
   })).filter(r => r.close != null && !isNaN(r.close));
-  const { ytd, oneY, prices } = _computeReturns(rows);
-  return { ticker, ytd, oneY, prices, source: "yahoo" };
+  const { ytd, oneY, prices, lastDate } = _computeReturns(rows);
+  return { ticker, ytd, oneY, prices, lastDate, source: "yahoo" };
 }
 
 // Stooq fallback (CSV, may not be split-adjusted on every ticker).
@@ -1037,8 +1068,8 @@ async function fetchStooqHistory(ticker) {
     return { date: c[0], close: parseFloat(c[4]) };
   }).filter(r => r.date && !isNaN(r.close));
   const oneYRows = allRows.slice(-252);
-  const { ytd, oneY, prices } = _computeReturns(oneYRows);
-  return { ticker, ytd, oneY, prices, source: "stooq" };
+  const { ytd, oneY, prices, lastDate } = _computeReturns(oneYRows);
+  return { ticker, ytd, oneY, prices, lastDate, source: "stooq" };
 }
 
 // Server-side Yahoo proxy (Vercel serverless function). No CORS, split/dividend
@@ -1054,8 +1085,8 @@ async function fetchProxyHistory(ticker) {
   if (!resp.ok) throw new Error(`Proxy ${ticker} HTTP ${resp.status}`);
   const json = await resp.json();
   if (!json.rows || json.rows.length < 2) throw new Error(`Proxy ${ticker} short data`);
-  const { ytd, oneY, prices } = _computeReturns(json.rows);
-  return { ticker, ytd, oneY, prices, source: "proxy" };
+  const { ytd, oneY, prices, lastDate } = _computeReturns(json.rows);
+  return { ticker, ytd, oneY, prices, lastDate, source: "proxy" };
 }
 
 async function fetchHistoryWithFallback(ticker) {
@@ -1125,7 +1156,8 @@ function sparklineSVG(prices, color, width = 200, height = 28, padLeft = 0, padR
 
 function renderSectorsDetail(d, evalResult) {
   const rows = d.allRanked.map((s, i) => {
-    const cls = i === 0 ? "highlight" : "";
+    const cls = s.ticker === d.topTicker ? "highlight" : "";
+    const tag = s.growth === false ? ` <span class="sector-tag" title="Not eligible as leader — only growth/cyclical sectors count">non-growth</span>` : "";
     const absSign = s.absReturn3M  >= 0 ? "+" : "";
     const relSign = s.relStrength3M >= 0 ? "+" : "";
     const absClass = s.absReturn3M  >= 0 ? "beat" : "miss";
@@ -1134,7 +1166,7 @@ function renderSectorsDetail(d, evalResult) {
       <tr class="sector-row ${cls}" data-ticker="${s.ticker}">
         <td class="num">${i + 1}</td>
         <td><span class="expander">▶</span> <strong>${s.ticker}</strong></td>
-        <td>${s.name}</td>
+        <td>${s.name}${tag}</td>
         <td class="num ${absClass}">${absSign}${s.absReturn3M.toFixed(2)}%</td>
         <td class="num ${relClass}">${relSign}${s.relStrength3M.toFixed(2)}%</td>
       </tr>
@@ -1149,10 +1181,11 @@ function renderSectorsDetail(d, evalResult) {
         <h2>Leading Sector ${statusPill(evalResult.status)}</h2>
         <div class="sub">Sector ETF performance vs SPY over the last 3 months. Click a ticker to expand its top 5 movers.</div>
       </div>
-      <div class="updated">Top: ${d.topTicker} (${d.topName})</div>
+      <div class="updated">${d.asOf ? `Prices as of ${d.asOf}` : `Leader: ${d.topTicker}`}</div>
     </div>
+    ${d.defensiveLeader ? `<div class="rule-box notice">${d.defensiveLeader.ticker} (${d.defensiveLeader.name}) tops the table at ${d.defensiveLeader.relStrength3M >= 0 ? "+" : ""}${d.defensiveLeader.relStrength3M.toFixed(1)}pp vs SPY, but it's a non-growth sector. Its outperformance reflects a risk-off rotation, so the condition is scored on the best growth sector instead.</div>` : ""}
     <div class="stat-row">
-      <div class="stat"><div class="stat-label">Leader</div><div class="stat-value">${d.topTicker}</div><div class="stat-sub">${d.topName}</div></div>
+      <div class="stat"><div class="stat-label">Growth leader</div><div class="stat-value">${d.topTicker}</div><div class="stat-sub">${d.topName}</div></div>
       <div class="stat"><div class="stat-label">3M Return</div><div class="stat-value">${d.absReturn3M >= 0 ? "+" : ""}${d.absReturn3M.toFixed(1)}%</div><div class="stat-sub">absolute</div></div>
       <div class="stat"><div class="stat-label">vs SPY</div><div class="stat-value">${d.relStrength3M >= 0 ? "+" : ""}${d.relStrength3M.toFixed(1)}pp</div><div class="stat-sub">relative strength</div></div>
       <div class="stat"><div class="stat-label">Status</div><div class="stat-value">${d.relStrength3M >= 3 ? "Clear" : "—"}</div><div class="stat-sub">${d.relStrength3M >= 3 ? "outperformer (≥3pp)" : "needs ≥3pp vs S&P"}</div></div>
@@ -1173,14 +1206,14 @@ function renderSectorsDetail(d, evalResult) {
             <th>Ticker</th>
             <th>Sector</th>
             <th class="num has-tooltip" title="Absolute price return of the sector ETF over the last 3 months (Yahoo Finance raw closes).">3M Return</th>
-            <th class="num has-tooltip" title="ETF 3M return minus SPY 3M return — measures relative outperformance. Sectors with the highest vs-SPY % are leading the market. Trigger needs the leader ≥3pp above the runner-up.">vs SPY</th>
+            <th class="num has-tooltip" title="ETF 3M return minus SPY 3M return — measures relative outperformance. Sectors with the highest vs-SPY % are leading the market. Trigger needs the top growth sector ≥3pp above SPY.">vs SPY</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>
     </div>
     <div class="rule-box">
-      <strong>Rule:</strong> Trigger when a sector clearly outperforms the S&P 500 — a 3-month relative strength of ≥3pp. A clear outperformer (Mag 7 in 2025, semis in 2026) signals institutional capital is flowing into a defensible theme; the Earnings condition then confirms those outperformers are backed by EPS beats.
+      <strong>Rule:</strong> Trigger when a growth sector (Tech, Semis, Consumer Disc., Communications, Financials, Industrials) clearly outperforms the S&P 500 — a 3-month relative strength of ≥3pp. Defensive and commodity sectors are shown but can't lead. A clear outperformer (Mag 7 in 2025, semis in 2026) signals institutional capital is flowing into a defensible theme; the Earnings condition then confirms those outperformers are backed by EPS beats.
     </div>
   `;
 
@@ -1277,18 +1310,25 @@ function beatStrip(history, n = 6) {
 }
 
 function renderEarningsDetail(d, evalResult) {
-  const avgSurprise = d.perTicker.reduce((a, t) => a + (t.surprise || 0), 0) / d.perTicker.length;
+  const reported = d.perTicker.filter(t => t.beat !== null && t.beat !== undefined);
+  const avgSurprise = reported.length
+    ? reported.reduce((a, t) => a + (t.surprise || 0), 0) / reported.length : 0;
+  const beatCount = reported.filter(t => t.beat).length;
+  const universe = d.universe ?? d.perTicker.length;
+  const missing = universe - reported.length;
   const trend = d.quarterlyTrend || [];
   const momentumUp = trend.length >= 2 && trend[trend.length - 1].beatRate >= trend[0].beatRate;
 
   const rows = d.perTicker.map(t => {
     const hasHist = (t.history || []).length > 0;
+    const noData = t.beat === null || t.beat === undefined;
+    const cls = noData ? "na" : t.beat ? "beat" : "miss";
     return `
       <tr class="earn-row${hasHist ? "" : " no-hist"}" data-ticker="${t.ticker}">
         <td>${hasHist ? '<span class="expander">▶</span> ' : ""}<strong>${t.ticker}</strong></td>
-        <td class="num">${t.estimate?.toFixed(2) ?? "–"} → ${t.actual?.toFixed(2) ?? "–"}</td>
-        <td class="num ${t.beat ? "beat" : "miss"}">${t.surprise >= 0 ? "+" : ""}${t.surprise?.toFixed(1) ?? "–"}%</td>
-        <td class="${t.beat ? "beat" : "miss"}">${t.beat ? "BEAT" : "MISS"}</td>
+        <td class="num">${noData ? "–" : `${t.estimate?.toFixed(2) ?? "–"} → ${t.actual?.toFixed(2) ?? "–"}`}</td>
+        <td class="num ${cls}">${noData || t.surprise == null ? "–" : `${t.surprise >= 0 ? "+" : ""}${t.surprise.toFixed(1)}%`}</td>
+        <td class="${cls}">${noData ? "No data" : t.beat ? "BEAT" : "MISS"}</td>
         <td class="beat-strip-cell">${beatStrip(t.history)}</td>
       </tr>
       <tr class="earn-detail-row" data-detail="${t.ticker}" hidden>
@@ -1302,13 +1342,14 @@ function renderEarningsDetail(d, evalResult) {
         <h2>Earnings Profile ${statusPill(evalResult.status)}</h2>
         <div class="sub">EPS beats for the leading sector's (${d.sectorTicker}) top constituents. Click a ticker for its quarterly history.</div>
       </div>
-      <div class="updated">Leading sector: ${d.sectorTicker}</div>
+      <div class="updated">Leading sector: ${d.sectorTicker}${d.asOf ? ` · latest report ${d.asOf}` : ""}${d.provider ? ` · ${d.provider}` : ""}</div>
     </div>
+    ${missing > 0 ? `<div class="rule-box notice">${missing} of ${universe} constituents have no earnings data from the source right now. They're excluded from the beat rate, and the condition only passes if the confirmed beats alone reach 60% of all ${universe}.</div>` : ""}
     <div class="stat-row">
-      <div class="stat"><div class="stat-label">Beat rate</div><div class="stat-value">${(d.beatRate * 100).toFixed(0)}%</div><div class="stat-sub">${d.perTicker.filter(t => t.beat).length} of ${d.sample} beat last quarter</div></div>
+      <div class="stat"><div class="stat-label">Beat rate</div><div class="stat-value">${(d.beatRate * 100).toFixed(0)}%</div><div class="stat-sub">${beatCount} of ${reported.length} reported beat</div></div>
       <div class="stat"><div class="stat-label">Avg surprise</div><div class="stat-value">${avgSurprise >= 0 ? "+" : ""}${avgSurprise.toFixed(1)}%</div><div class="stat-sub">vs consensus EPS</div></div>
       <div class="stat"><div class="stat-label">Momentum</div><div class="stat-value ${momentumUp ? "mom-up" : "mom-down"}">${momentumUp ? "▲ Up" : "▼ Soft"}</div><div class="stat-sub">beat-rate trajectory</div></div>
-      <div class="stat"><div class="stat-label">Constituents</div><div class="stat-value">${d.sample}</div><div class="stat-sub">top-${d.sample} ETF holdings</div></div>
+      <div class="stat"><div class="stat-label">Data coverage</div><div class="stat-value">${reported.length} / ${universe}</div><div class="stat-sub">top-${universe} ETF holdings</div></div>
     </div>
     <div class="detail-section">
       <h3>Latest quarter — per ticker · last 6 quarters at right</h3>
@@ -1718,9 +1759,10 @@ async function fetchFed_live() {
 
   // Prefer live dot-plot medians from the FRED proxy (FEDTARMD/FEDTARMDLR).
   // Fall back to the manually maintained data/dotplot.json if absent.
-  let projections, direction;
+  let projections, direction, projSource;
   if (fed.projections) {
     projections = fed.projections;
+    projSource = "latest FOMC SEP via FRED";
     const midpoint = (last.value + lastLow.value) / 2;
     const vals = Object.values(projections).filter(v => typeof v === "number");
     const anyHigher = vals.some(v => v > midpoint + 0.10);
@@ -1730,6 +1772,7 @@ async function fetchFed_live() {
     const dot = await fetch("data/dotplot.json").then(r => r.json());
     projections = dot.projections || {};
     direction = dot.direction;
+    projSource = `${formatAsOf(dot.meeting) || "manual"} SEP (data/dotplot.json)`;
   }
   const ye = projections[String(new Date().getFullYear())] ?? last.value;
 
@@ -1741,6 +1784,9 @@ async function fetchFed_live() {
     projections,
     dotMedianYearEnd: ye,
     direction,
+    projSource,
+    rateSource: fed.sourceLabel,
+    asOf: last.date,
     // Pass enough historical data (~7 years daily) so the trajectory chart
     // can render a balanced past-vs-future window. drawFedTrajectoryChart
     // trims this to whatever span matches the furthest projection.
@@ -1824,10 +1870,12 @@ async function fetchLeading_live() {
   const tickers = ["SPY", ...Object.keys(SECTOR_ETFS)];
   const settled = await Promise.allSettled(tickers.map(t => fetchHistoryWithFallback(t)));
   const closes = {};
+  let lastDate = null;
   settled.forEach((r, i) => {
     if (r.status !== "fulfilled") return;
     const m3 = _compute3M(r.value.prices);
     if (m3 != null) closes[tickers[i]] = m3;
+    if (tickers[i] === "SPY") lastDate = r.value.lastDate || null;
   });
   if (closes["SPY"] == null) throw new Error("SPY 3M close missing");
   const spy = closes["SPY"];
@@ -1837,20 +1885,30 @@ async function fetchLeading_live() {
       ticker: t,
       name: SECTOR_ETFS[t],
       absReturn3M: closes[t],
-      relStrength3M: closes[t] - spy
+      relStrength3M: closes[t] - spy,
+      growth: GROWTH_SECTORS.has(t)
     }))
     .sort((a, b) => b.relStrength3M - a.relStrength3M);
-  if (allRanked.length < 2) throw new Error("Not enough sector data");
-  const top = allRanked[0], second = allRanked[1];
+  return { ...summarizeSectors(allRanked, spy), asOf: lastDate, source: "live" };
+}
+
+// Pick the leader from growth/cyclical sectors only. Defensive sectors
+// beating a falling S&P is a risk-off rotation, not thematic leadership —
+// the same candidate set scripts/backfill_history.py uses for the history.
+function summarizeSectors(allRanked, spy3M) {
+  const growth = allRanked.filter(s => s.growth);
+  if (growth.length === 0) throw new Error("Not enough sector data");
+  const top = growth[0];
+  const overallTop = allRanked[0];
   return {
     topTicker: top.ticker, topName: top.name,
     absReturn3M: top.absReturn3M,
     relStrength3M: top.relStrength3M,
-    spy3M: spy,
-    runnerUp: { ticker: second.ticker, name: second.name, absReturn3M: second.absReturn3M, relStrength3M: second.relStrength3M },
+    spy3M,
+    // Set when a defensive sector outranks the growth leader (shown, not scored).
+    defensiveLeader: overallTop && !overallTop.growth ? overallTop : null,
     decisive: top.relStrength3M >= 3,   // clear outperformer vs S&P 500
-    allRanked,
-    source: "live"
+    allRanked
   };
 }
 
@@ -1871,13 +1929,17 @@ async function fetchEarnings_live(sectorTicker) {
   ));
 
   const perTicker = [];
-  let beats = 0, total = 0, upwardSum = 0;
+  let beats = 0, total = 0, upwardSum = 0, asOf = null, provider = null;
   results.forEach((r, i) => {
     const ticker = tickers[i];
     if (r.status !== "fulfilled" || !r.value || !r.value.latest) {
-      perTicker.push({ ticker, actual: null, estimate: null, surprise: null, beat: false });
+      // Missing data is NOT a miss — beat stays null and it's excluded from
+      // the beat rate; evalEarnings accounts for the gap explicitly.
+      perTicker.push({ ticker, actual: null, estimate: null, surprise: null, beat: null, history: [] });
       return;
     }
+    if (r.value.latest.date && (!asOf || r.value.latest.date > asOf)) asOf = r.value.latest.date;
+    provider = provider || r.value.provider || null;
     const latest = r.value.latest;
     const beat   = Boolean(latest.beat);
     total++;
@@ -1898,8 +1960,12 @@ async function fetchEarnings_live(sectorTicker) {
   return {
     sectorTicker,
     beatRate: beats / total,
+    beats,
     quartersUpward: Math.round(upwardSum / Math.max(1, total)),
-    sample: total,
+    sample: total,            // constituents with data
+    universe: tickers.length, // constituents the rule is defined over
+    asOf,
+    provider,
     perTicker,
     quarterlyTrend: buildEarningsTrend(perTicker),
     source: "live"
@@ -1927,12 +1993,21 @@ function buildEarningsTrend(perTicker, depth = 6) {
 // ============================================================
 // Orchestration
 // ============================================================
+// A source that hangs (no response, no error) would otherwise block the
+// whole dashboard on "Loading…" forever — cap each one and fall back.
+const SOURCE_TIMEOUT_MS = 20000;
+
 async function withFallback(name, fn, fallback) {
-  try { return await fn(); }
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`timed out after ${SOURCE_TIMEOUT_MS / 1000}s`)), SOURCE_TIMEOUT_MS);
+  });
+  try { return await Promise.race([fn(), timeout]); }
   catch (err) {
     console.warn(`[${name}] live fetch failed, using mock:`, err.message || err);
     return { ...fallback, source: "mock" };
   }
+  finally { clearTimeout(timer); }
 }
 
 async function loadData() {
@@ -1976,8 +2051,14 @@ async function main() {
   renderSectorsDetail(data.leadingSector, results[3]);
   renderEarningsDetail(data.earnings, results[4]);
 
-  document.getElementById("last-updated").textContent =
-    `Updated ${new Date().toISOString().slice(0, 10)}`;
+  // This is when the page fetched data, not when the data is from — each
+  // card carries its own "as of" date for that.
+  const checked = new Date().toLocaleString(undefined, {
+    month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit"
+  });
+  const lu = document.getElementById("last-updated");
+  lu.textContent = `Checked ${checked}`;
+  lu.title = "When this page last fetched data. Each card shows its own data date.";
   document.getElementById("data-mode").textContent = data.dataMode;
 
   try {

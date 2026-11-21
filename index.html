@@ -148,18 +148,18 @@
           </article>
           <article class="methodology-item">
             <h3>3. Margin debt decreasing</h3>
-            <p class="rule">Trigger when FINRA monthly debit balances are lower than the prior month.</p>
+            <p class="rule">Trigger when FINRA monthly debit balances are lower than the prior month. A rise of under 1% shows as Watch.</p>
             <p class="limitation"><strong>Limitation:</strong> Lagging indicator — FINRA publishes ~3 weeks after month-end. Monthly granularity misses intra-month deleveraging.</p>
           </article>
           <article class="methodology-item">
             <h3>4. Clear leading sector</h3>
-            <p class="rule">Trigger when a sector ETF clearly outperforms the S&amp;P 500 — a 3-month relative strength of at least 3pp. The Earnings condition then confirms those outperformers are beating EPS.</p>
-            <p class="limitation"><strong>Limitation:</strong> 3-month window; momentum can reverse quickly. Identifies that capital is flowing somewhere — does not validate the underlying thesis.</p>
+            <p class="rule">Trigger when a growth sector ETF (Tech, Semis, Consumer Disc., Communications, Financials, Industrials) clearly outperforms the S&amp;P 500 — a 3-month relative strength of at least 3pp. The Earnings condition then confirms those outperformers are beating EPS.</p>
+            <p class="limitation"><strong>Limitation:</strong> 3-month window; momentum can reverse quickly. Defensive sectors (Staples, Utilities, Health Care, Real Estate) and commodity sectors are excluded because they beat a falling market by default. Identifies that capital is flowing somewhere — does not validate the underlying thesis.</p>
           </article>
           <article class="methodology-item">
             <h3>5. Leading sector earnings</h3>
             <p class="rule">Trigger when &ge;60% of the leading sector's top-10 constituents beat their consensus EPS estimate in the most recent quarter.</p>
-            <p class="limitation"><strong>Limitation:</strong> Quarterly cadence; constituents don't all report in the same quarter. Backward-looking — beating last quarter does not predict the next.</p>
+            <p class="limitation"><strong>Limitation:</strong> Quarterly cadence; constituents don't all report in the same quarter. Constituents with no data are excluded, and the condition only passes if confirmed beats alone reach 60%. Backward-looking — beating last quarter does not predict the next.</p>
           </article>
         </div>
       </details>

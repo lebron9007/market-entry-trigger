@@ -14,8 +14,35 @@
 //
 // We try NASDAQ first, then NYSE, since MarketBeat splits its URL space
 // by listing exchange. Edge-cached 7 days (earnings are quarterly).
+//
+// PRIMARY SOURCE: Finnhub (https://finnhub.io/docs/api/company-earnings),
+// used when the FINNHUB_API_KEY env var is set in Vercel. Since Nov 2026
+// MarketBeat serves a Cloudflare challenge to r.jina.ai, so MarketBeat is
+// now only a best-effort fallback. The key stays server-side.
 
 const EXCHANGES = ["NASDAQ", "NYSE"];
+
+async function fetchFinnhub(ticker, key) {
+  const url = `https://finnhub.io/api/v1/stock/earnings?symbol=${encodeURIComponent(ticker)}&token=${encodeURIComponent(key)}`;
+  const r = await fetch(url, { headers: { Accept: "application/json" } });
+  if (!r.ok) throw new Error(`Finnhub HTTP ${r.status}`);
+  const rows = await r.json();
+  if (!Array.isArray(rows)) throw new Error("Finnhub unexpected payload");
+  // Newest first. `period` is the fiscal quarter end date.
+  return rows
+    .filter(q => Number.isFinite(q.actual) && Number.isFinite(q.estimate))
+    .sort((a, b) => String(b.period).localeCompare(String(a.period)))
+    .map(q => ({
+      date: q.period,
+      quarter: `Q${q.quarter} ${q.year}`,
+      estimate: q.estimate,
+      actual: q.actual,
+      surprise: q.estimate !== 0
+        ? +(((q.actual - q.estimate) / Math.abs(q.estimate)) * 100).toFixed(2)
+        : 0,
+      beat: q.actual > q.estimate
+    }));
+}
 
 async function fetchMarketBeatMarkdown(ticker) {
   for (const ex of EXCHANGES) {
@@ -92,10 +119,27 @@ export default async function handler(req, res) {
   }
 
   try {
-    const text    = await fetchMarketBeatMarkdown(ticker);
-    const history = parseEarningsMarkdown(text);
+    let history = [];
+    let provider = null;
+    const errors = [];
+
+    if (process.env.FINNHUB_API_KEY) {
+      try {
+        history = await fetchFinnhub(ticker, process.env.FINNHUB_API_KEY);
+        provider = "Finnhub";
+      } catch (e) { errors.push(String(e.message || e)); }
+    }
     if (history.length === 0) {
-      return res.status(502).json({ error: `No earnings rows parsed for ${ticker}` });
+      try {
+        history = parseEarningsMarkdown(await fetchMarketBeatMarkdown(ticker));
+        provider = "MarketBeat";
+      } catch (e) { errors.push(String(e.message || e)); }
+    }
+    if (history.length === 0) {
+      return res.status(502).json({
+        error: errors.join("; ") || `No earnings rows parsed for ${ticker}`,
+        hint: process.env.FINNHUB_API_KEY ? undefined : "Set FINNHUB_API_KEY in Vercel env vars"
+      });
     }
 
     // Earnings only update quarterly — cache hard. 7-day edge cache,
@@ -107,6 +151,7 @@ export default async function handler(req, res) {
     res.setHeader("Access-Control-Allow-Origin", "*");
     return res.status(200).json({
       ticker,
+      provider,
       latest: history[0],
       history: history.slice(0, 8)
     });

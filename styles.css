@@ -876,6 +876,19 @@ table.movers-detail tbody .md-spark .sparkline {
 }
 table.data td.beat { color: var(--green); }
 table.data td.miss { color: var(--red); }
+table.data td.na { color: var(--text-dim); }
+.sector-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  background: rgba(139,148,158,0.15);
+  vertical-align: 1px;
+}
 
 .chart-caption {
   font-size: 11px;
@@ -928,6 +941,8 @@ table.earn-hist td, table.earn-hist th { padding: 7px 10px; }
   line-height: 1.55;
 }
 .rule-box strong { color: var(--text); }
+/* Data-quality notice shown above a tab's stats (amber accent). */
+.rule-box.notice { border-left-color: var(--yellow); margin-bottom: 16px; }
 
 /* Footer */
 .footer {
