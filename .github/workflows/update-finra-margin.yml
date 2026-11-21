@@ -1,0 +1,81 @@
+# Keeps data/finra_margin.json (the dashboard's fallback copy of FINRA margin
+# debt) in sync with the live scrape served by /api/finra-margin.
+#
+# Uses the workflow's built-in GITHUB_TOKEN to commit, so no personal access
+# token is needed. Replaces the old write-back inside the Vercel function,
+# whose PAT expired. FINRA publishes monthly (~3 weeks after month-end), so a
+# daily check is plenty; it only commits when the data actually changed.
+
+name: Update FINRA margin data
+
+on:
+  schedule:
+    - cron: "30 14 * * *"   # daily, 14:30 UTC (after the 13:00 health cron)
+  workflow_dispatch: {}      # allow manual runs from the Actions tab
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-finra-margin
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch live FINRA data
+        run: |
+          curl -sSf --retry 3 --retry-delay 20 -m 90 \
+            "https://market-entry-trigger.vercel.app/api/finra-margin" -o "$RUNNER_TEMP/finra.json"
+
+      - name: Rewrite data/finra_margin.json
+        run: |
+          python3 - "$RUNNER_TEMP/finra.json" <<'PY'
+          import json, sys
+          live = json.load(open(sys.argv[1], encoding="utf-8"))
+          hist = live.get("history") or []
+          if len(hist) < 2 or not live.get("asOf"):
+              sys.exit("Live payload has no usable history; leaving the file unchanged.")
+          # FINRA's page only shows ~13 months; merge so older months are kept
+          # (live values win where months overlap, e.g. FINRA revisions).
+          try:
+              old = json.load(open("data/finra_margin.json", encoding="utf-8")).get("history", [])
+          except Exception:
+              old = []
+          merged = {h["month"]: h["value"] for h in old}
+          merged.update({h["month"]: h["value"] for h in hist})
+          hist = [{"month": m, "value": merged[m]} for m in sorted(merged)]
+          out = {
+              "_comment": (
+                  "Auto-updated daily by .github/workflows/update-finra-margin.yml "
+                  "from /api/finra-margin (FINRA via r.jina.ai). Used as the dashboard's "
+                  "fallback when the live scrape fails. Manual edits are fine but will "
+                  "be overwritten on the next successful update. Source: "
+                  "https://www.finra.org/rules-guidance/key-topics/margin-accounts/margin-statistics"
+              ),
+              "unitsLabel": live.get("unitsLabel", "$B"),
+              "asOf": live["asOf"],
+              "history": [{"month": h["month"], "value": h["value"]} for h in hist],
+          }
+          with open("data/finra_margin.json", "w", encoding="utf-8", newline="\n") as f:
+              json.dump(out, f, indent=2, ensure_ascii=False)
+              f.write("\n")
+          print("asOf", out["asOf"], "rows", len(out["history"]))
+          PY
+
+      - name: Commit if changed
+        run: |
+          if git diff --quiet -- data/finra_margin.json; then
+            echo "No change."
+            exit 0
+          fi
+          ASOF=$(python3 -c "import json;print(json.load(open('data/finra_margin.json'))['asOf'])")
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/finra_margin.json
+          git commit -m "chore(data): auto-update FINRA margin through $ASOF"
+          git push

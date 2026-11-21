@@ -8,9 +8,6 @@
 // degraded AND an ALERT_WEBHOOK env var is set (Slack or Discord incoming
 // webhook URL), it POSTs a summary so you find out before users do —
 // otherwise a broken scraper would just silently fall back to mock.
-//
-// Side benefit: probing /api/finra-margin daily also keeps the FINRA
-// write-back fresh.
 
 export default async function handler(req, res) {
   const proto = (req.headers["x-forwarded-proto"] || "https").split(",")[0];
@@ -22,7 +19,7 @@ export default async function handler(req, res) {
     { name: "VIX (Yahoo)",               path: "/api/quotes?ticker=%5EVIX&range=1mo" },
     { name: "Fed rate (FRED)",           path: "/api/fed-rate" },
     { name: "Margin debt (Jina/FINRA)",  path: "/api/finra-margin" },
-    { name: "Earnings (Jina/MarketBeat)", path: "/api/earnings?ticker=NVDA" }
+    { name: "Earnings (Yahoo)",          path: "/api/earnings?ticker=NVDA" }
   ];
 
   const sources = await Promise.all(checks.map(async c => {

@@ -1342,7 +1342,7 @@ function renderEarningsDetail(d, evalResult) {
         <h2>Earnings Profile ${statusPill(evalResult.status)}</h2>
         <div class="sub">EPS beats for the leading sector's (${d.sectorTicker}) top constituents. Click a ticker for its quarterly history.</div>
       </div>
-      <div class="updated">Leading sector: ${d.sectorTicker}${d.asOf ? ` · latest report ${d.asOf}` : ""}${d.provider ? ` · ${d.provider}` : ""}</div>
+      <div class="updated">Leading sector: ${d.sectorTicker}${d.asOf ? ` · latest quarter ended ${d.asOf}` : ""}${d.provider ? ` · ${d.provider}` : ""}</div>
     </div>
     ${missing > 0 ? `<div class="rule-box notice">${missing} of ${universe} constituents have no earnings data from the source right now. They're excluded from the beat rate, and the condition only passes if the confirmed beats alone reach 60% of all ${universe}.</div>` : ""}
     <div class="stat-row">
@@ -1352,7 +1352,7 @@ function renderEarningsDetail(d, evalResult) {
       <div class="stat"><div class="stat-label">Data coverage</div><div class="stat-value">${reported.length} / ${universe}</div><div class="stat-sub">top-${universe} ETF holdings</div></div>
     </div>
     <div class="detail-section">
-      <h3>Latest quarter — per ticker · last 6 quarters at right</h3>
+      <h3>Latest quarter — per ticker · recent quarters at right</h3>
       <table class="data earnings-table">
         <thead><tr><th>Ticker</th><th class="num">Est → Act</th><th class="num">Surprise</th><th>Latest</th><th>Beat history</th></tr></thead>
         <tbody>${rows}</tbody>

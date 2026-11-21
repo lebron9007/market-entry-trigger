@@ -3,13 +3,12 @@
 //
 // Get keys here:
 //   FRED:    https://fred.stlouisfed.org/docs/api/api_key.html
-//   Finnhub: https://finnhub.io/register
+// (Earnings come from Yahoo via /api/earnings — no key needed.)
 //
 // Until USE_REAL_DATA = true, the dashboard runs on mocked values
 // so you can see the layout work without keys.
 
 window.CONFIG = {
   USE_REAL_DATA: false,
-  FRED_API_KEY: "",
-  FINNHUB_API_KEY: ""
+  FRED_API_KEY: ""
 };

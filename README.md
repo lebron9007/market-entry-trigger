@@ -22,8 +22,8 @@ Pure static HTML/CSS/JS — runs on GitHub Pages, Netlify, or Vercel free tier.
 | Sectors / constituents | Yahoo Finance (Stooq fallback) | Auto, daily |
 | Fed Funds | FRED public CSV or `data/fed.json` | Auto / FOMC days |
 | Dot plot | `data/dotplot.json` | Manual, quarterly |
-| FINRA margin | `data/finra_margin.json` | Manual, monthly |
-| Earnings | Finnhub via `/api/earnings` (needs `FINNHUB_API_KEY` Vercel env var); MarketBeat fallback | Auto when key present |
+| FINRA margin | `/api/finra-margin` (live); `data/finra_margin.json` fallback, refreshed by a daily GitHub Action | Auto, monthly |
+| Earnings | Yahoo `earningsHistory` via `/api/earnings` (no key; MarketBeat fallback) | Auto, cached 7 days |
 
 ## Local dev
 
@@ -37,7 +37,6 @@ python -m http.server 8000
 Copy `config.example.js` → `config.js` and set:
 - `USE_REAL_DATA: true` to enable live fetches
 - `FRED_API_KEY` — free at https://fred.stlouisfed.org/docs/api/api_key.html
-- (Finnhub's key is a Vercel env var, not a `config.js` setting — see below)
 
 ## Health monitoring (deployed)
 
@@ -50,10 +49,6 @@ To get alerted when a scraper breaks, set a Vercel environment variable:
   check finds a degraded source, a summary is POSTed to it. If unset, the
   endpoint still works for manual checks — just no push alert.
 
-Earnings data uses:
-- `FINNHUB_API_KEY` — free key from https://finnhub.io/register. Set it as a
-  Vercel environment variable (server-side, never in `config.js`). Without it,
-  `/api/earnings` falls back to MarketBeat, which currently blocks the proxy.
-
-Server-side write-back (FINRA auto-update) uses:
-- `GITHUB_TOKEN` — fine-grained PAT with Contents:write on this repo.
+The FINRA fallback file is refreshed by `.github/workflows/update-finra-margin.yml`
+(daily, commits only on change) using the workflow's built-in token — no
+personal access token needed. Run it manually from the repo's Actions tab.

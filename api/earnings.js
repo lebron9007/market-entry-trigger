@@ -1,48 +1,96 @@
 // Vercel serverless function: returns per-ticker quarterly earnings history
-// (EPS estimate vs actual) by scraping MarketBeat through r.jina.ai.
+// (EPS estimate vs actual).
 //
 // Endpoint: /api/earnings?ticker=NVDA
-// Response: { ticker, latest: {...}, history: [...] }
+// Response: { ticker, provider, latest: {...}, history: [...] }   (newest first)
 //
-// MarketBeat publishes a clean quarterly earnings table per ticker at
-//   https://www.marketbeat.com/stocks/<EXCHANGE>/<TICKER>/earnings/
-// Direct fetch is bot-protected; routing through r.jina.ai (the LLM
-// Reader proxy) returns the page as markdown with a parseable pipe-table:
+// PRIMARY: Yahoo Finance quoteSummary "earningsHistory" module — consensus
+// EPS estimate vs reported EPS for the last 4 quarters. No API key, but the
+// endpoint requires a session "crumb": the same cookie + token handshake the
+// Yahoo Finance website performs on page load (fc.yahoo.com sets the cookie,
+// /v1/test/getcrumb returns the token). The pair is cached per warm instance.
 //
-//   | Date | Quarter | Consensus Estimate | Reported EPS | Beat/Miss |
-//   | 2/25/2026 | Q4 2026 | $1.54 | $1.62 | +$0.08 |
+// FALLBACK: MarketBeat earnings page via r.jina.ai. Since Nov 2026 MarketBeat
+// serves a Cloudflare challenge to the proxy, so this rarely succeeds now.
 //
-// We try NASDAQ first, then NYSE, since MarketBeat splits its URL space
-// by listing exchange. Edge-cached 7 days (earnings are quarterly).
-//
-// PRIMARY SOURCE: Finnhub (https://finnhub.io/docs/api/company-earnings),
-// used when the FINNHUB_API_KEY env var is set in Vercel. Since Nov 2026
-// MarketBeat serves a Cloudflare challenge to r.jina.ai, so MarketBeat is
-// now only a best-effort fallback. The key stays server-side.
+// Edge-cached 7 days per ticker (earnings are quarterly).
 
-const EXCHANGES = ["NASDAQ", "NYSE"];
+const UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+  "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
 
-async function fetchFinnhub(ticker, key) {
-  const url = `https://finnhub.io/api/v1/stock/earnings?symbol=${encodeURIComponent(ticker)}&token=${encodeURIComponent(key)}`;
-  const r = await fetch(url, { headers: { Accept: "application/json" } });
-  if (!r.ok) throw new Error(`Finnhub HTTP ${r.status}`);
-  const rows = await r.json();
-  if (!Array.isArray(rows)) throw new Error("Finnhub unexpected payload");
-  // Newest first. `period` is the fiscal quarter end date.
-  return rows
-    .filter(q => Number.isFinite(q.actual) && Number.isFinite(q.estimate))
-    .sort((a, b) => String(b.period).localeCompare(String(a.period)))
-    .map(q => ({
-      date: q.period,
-      quarter: `Q${q.quarter} ${q.year}`,
-      estimate: q.estimate,
-      actual: q.actual,
-      surprise: q.estimate !== 0
-        ? +(((q.actual - q.estimate) / Math.abs(q.estimate)) * 100).toFixed(2)
-        : 0,
-      beat: q.actual > q.estimate
-    }));
+// ---------------------------------------------------------------- Yahoo
+let yahooSession = null; // { cookie, crumb, at }
+const SESSION_TTL_MS = 60 * 60 * 1000;
+
+function extractCookies(resp) {
+  const list = typeof resp.headers.getSetCookie === "function"
+    ? resp.headers.getSetCookie()
+    : (resp.headers.get("set-cookie") || "").split(/,(?=\s*[A-Za-z0-9_]+=)/);
+  return list.map(c => c.split(";")[0].trim()).filter(Boolean).join("; ");
 }
+
+async function getYahooSession(force = false) {
+  if (!force && yahooSession && Date.now() - yahooSession.at < SESSION_TTL_MS) {
+    return yahooSession;
+  }
+  const r1 = await fetch("https://fc.yahoo.com/", { headers: { "User-Agent": UA }, redirect: "manual" });
+  const cookie = extractCookies(r1);
+  if (!cookie) throw new Error("Yahoo: no session cookie");
+  const r2 = await fetch("https://query2.finance.yahoo.com/v1/test/getcrumb", {
+    headers: { "User-Agent": UA, Cookie: cookie }
+  });
+  const crumb = (await r2.text()).trim();
+  if (!r2.ok || !crumb || crumb.length > 64 || /[<{\s]/.test(crumb)) {
+    throw new Error(`Yahoo: crumb HTTP ${r2.status}`);
+  }
+  yahooSession = { cookie, crumb, at: Date.now() };
+  return yahooSession;
+}
+
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function quarterLabel(isoDate) {
+  // "2026-10-26" -> "Qtr ending Oct 2026". Fiscal quarters don't line up
+  // with calendar quarters (e.g. NVDA), so name the period by its end month.
+  const [y, m] = isoDate.split("-").map(Number);
+  return `Qtr ending ${MONTHS[m - 1]} ${y}`;
+}
+
+async function fetchYahooEarnings(ticker) {
+  const attempt = async (session) => {
+    const url =
+      `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(ticker)}` +
+      `?modules=earningsHistory&crumb=${encodeURIComponent(session.crumb)}`;
+    return fetch(url, { headers: { "User-Agent": UA, Cookie: session.cookie, Accept: "application/json" } });
+  };
+  let r = await attempt(await getYahooSession());
+  if (r.status === 401 || r.status === 403) r = await attempt(await getYahooSession(true));
+  if (!r.ok) throw new Error(`Yahoo earningsHistory HTTP ${r.status}`);
+  const j = await r.json();
+  const rows = j?.quoteSummary?.result?.[0]?.earningsHistory?.history || [];
+  return rows
+    .map(q => {
+      const estimate = q?.epsEstimate?.raw;
+      const actual   = q?.epsActual?.raw;
+      const date     = q?.quarter?.fmt; // fiscal quarter end, YYYY-MM-DD
+      if (!Number.isFinite(estimate) || !Number.isFinite(actual) || !date) return null;
+      return {
+        date,
+        quarter: quarterLabel(date),
+        estimate: +estimate.toFixed(2),
+        actual:   +actual.toFixed(2),
+        surprise: estimate !== 0
+          ? +(((actual - estimate) / Math.abs(estimate)) * 100).toFixed(2)
+          : 0,
+        beat: actual > estimate
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.date.localeCompare(a.date)); // newest first
+}
+
+// ----------------------------------------------------------- MarketBeat
+const EXCHANGES = ["NASDAQ", "NYSE"];
 
 async function fetchMarketBeatMarkdown(ticker) {
   for (const ex of EXCHANGES) {
@@ -112,50 +160,44 @@ function parseEarningsMarkdown(text) {
   return history;
 }
 
+// -------------------------------------------------------------- handler
 export default async function handler(req, res) {
   const ticker = String(req.query?.ticker || "").toUpperCase().trim();
   if (!ticker || !/^[A-Z][A-Z.\-]{0,9}$/.test(ticker)) {
     return res.status(400).json({ error: "Missing or invalid ?ticker= parameter" });
   }
 
+  let history = [];
+  let provider = null;
+  const errors = [];
+
   try {
-    let history = [];
-    let provider = null;
-    const errors = [];
+    history = await fetchYahooEarnings(ticker);
+    provider = "Yahoo";
+  } catch (e) { errors.push(String(e.message || e)); }
 
-    if (process.env.FINNHUB_API_KEY) {
-      try {
-        history = await fetchFinnhub(ticker, process.env.FINNHUB_API_KEY);
-        provider = "Finnhub";
-      } catch (e) { errors.push(String(e.message || e)); }
-    }
-    if (history.length === 0) {
-      try {
-        history = parseEarningsMarkdown(await fetchMarketBeatMarkdown(ticker));
-        provider = "MarketBeat";
-      } catch (e) { errors.push(String(e.message || e)); }
-    }
-    if (history.length === 0) {
-      return res.status(502).json({
-        error: errors.join("; ") || `No earnings rows parsed for ${ticker}`,
-        hint: process.env.FINNHUB_API_KEY ? undefined : "Set FINNHUB_API_KEY in Vercel env vars"
-      });
-    }
-
-    // Earnings only update quarterly — cache hard. 7-day edge cache,
-    // 30-day stale-while-revalidate. Per-ticker keying via the URL.
-    res.setHeader(
-      "Cache-Control",
-      "public, s-maxage=604800, stale-while-revalidate=2592000"
-    );
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    return res.status(200).json({
-      ticker,
-      provider,
-      latest: history[0],
-      history: history.slice(0, 8)
-    });
-  } catch (err) {
-    return res.status(502).json({ error: String(err.message || err) });
+  if (history.length === 0) {
+    try {
+      history = parseEarningsMarkdown(await fetchMarketBeatMarkdown(ticker));
+      provider = "MarketBeat";
+    } catch (e) { errors.push(String(e.message || e)); }
   }
+
+  if (history.length === 0) {
+    return res.status(502).json({ error: errors.join("; ") || `No earnings rows for ${ticker}` });
+  }
+
+  // Earnings only update quarterly — cache hard. 7-day edge cache,
+  // 30-day stale-while-revalidate. Per-ticker keying via the URL.
+  res.setHeader(
+    "Cache-Control",
+    "public, s-maxage=604800, stale-while-revalidate=2592000"
+  );
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  return res.status(200).json({
+    ticker,
+    provider,
+    latest: history[0],
+    history: history.slice(0, 8)
+  });
 }

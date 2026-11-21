@@ -1,7 +1,7 @@
 {
-  "_comment": "Auto-updated by /api/finra-margin (FINRA via r.jina.ai). Manual edits are welcome and serve as fallback if the proxy fails — they'll be overwritten the next time the proxy successfully scrapes fresh data. Source: https://www.finra.org/rules-guidance/key-topics/margin-accounts/margin-statistics",
+  "_comment": "Auto-updated daily by .github/workflows/update-finra-margin.yml from /api/finra-margin (FINRA via r.jina.ai). Used as the dashboard's fallback when the live scrape fails. Manual edits are fine but will be overwritten on the next successful update. Source: https://www.finra.org/rules-guidance/key-topics/margin-accounts/margin-statistics",
   "unitsLabel": "$B",
-  "asOf": "2026-04",
+  "asOf": "2026-10",
   "history": [
     {
       "month": "2025-04",
@@ -54,6 +54,30 @@
     {
       "month": "2026-04",
       "value": 1304.3
+    },
+    {
+      "month": "2026-05",
+      "value": 1415.6
+    },
+    {
+      "month": "2026-06",
+      "value": 1502.1
+    },
+    {
+      "month": "2026-07",
+      "value": 1417.2
+    },
+    {
+      "month": "2026-08",
+      "value": 1453.8
+    },
+    {
+      "month": "2026-09",
+      "value": 1480.1
+    },
+    {
+      "month": "2026-10",
+      "value": 1448.4
     }
   ]
 }
