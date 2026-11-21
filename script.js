@@ -37,6 +37,16 @@ const MARKET_CAPS = {
   META: 1900, GOOGL: 2300, NFLX: 350, DIS: 200, TMUS: 280, T: 200, VZ: 195, EA: 40, WBD: 30, CHTR: 60
 };
 
+// Charts on hidden tabs are created at zero size and used to play their
+// intro animation from a collapsed shape when first shown. Static is clearer.
+if (window.Chart) Chart.defaults.animation = false;
+
+// 1448.4 -> "$1,448B" (FINRA margin debt is reported in $ billions).
+function formatBillions(v, decimals = 0) {
+  if (v == null || isNaN(v)) return "—";
+  return `$${Number(v).toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}B`;
+}
+
 function formatMarketCap(cap) {
   if (cap == null || isNaN(cap)) return "—";
   if (cap >= 1000) return `$${(cap / 1000).toFixed(1)}T`;
@@ -288,7 +298,7 @@ function evalMargin(d) {
   return {
     title: "Margin Debt", tab: "margin",
     pass: status === "green", status,
-    value: `${d.unitsLabel}${d.latest.toFixed(0)}`,
+    value: formatBillions(d.latest),
     takeaway: `${sign(pctDelta)}${pctDelta.toFixed(1)}% MoM${
       pct3M != null ? `, ${sign(pct3M)}${pct3M.toFixed(1)}% over 3M` : ""}. ${
       status === "green" ? "Decreasing — meets trigger." :
@@ -428,15 +438,14 @@ function renderScore(score, results) {
 // ============================================================
 // History chart (overview)
 // ============================================================
-// Subdued sequential blue palette — peak alignment is bright accent blue,
-// weak readings fade to grey. Less alarming than red/green.
-// Signal-strength palette — sequential from strong (green) through mixed
-// (amber) to weak (grey). Distinct hues at a glance without being loud.
+// Signal-strength palette, matching the status colours used everywhere else:
+// 5/5 green (full alignment), 4/5 amber (one short), 3/5 grey, <=2 faint.
+// 4/5 used to be lime, which was hard to tell apart from 5/5 green.
 function colorForScore(s) {
   if (s >= 5) return "#2ea043";                  // green
-  if (s >= 4) return "#65a30d";                  // lime
-  if (s >= 3) return "#d29922";                  // amber
-  return "rgba(139, 148, 158, 0.50)";            // muted grey
+  if (s >= 4) return "#d29922";                  // amber
+  if (s >= 3) return "rgba(139, 148, 158, 0.85)"; // grey
+  return "rgba(139, 148, 158, 0.35)";            // faint grey
 }
 
 function scoreRadius(s) {
@@ -449,14 +458,17 @@ function scoreRadius(s) {
 // 10-year weekly SPY closes — used as the historical-alignment chart backdrop.
 // 10y is short enough that the 2020 COVID crash, 2022 bear, and recent drawdowns
 // each have visible drama; max range made everything look like a smooth line.
-async function fetchSpyHistory() {
+const _spyHistoryCache = {};
+async function fetchSpyHistory(range = "10y") {
   const host = (typeof location !== "undefined" ? location.hostname : "") || "";
   if (host === "localhost" || host === "127.0.0.1" || host === "") return null;
+  if (_spyHistoryCache[range]) return _spyHistoryCache[range];
   try {
-    const r = await fetch("/api/quotes?ticker=SPY&range=10y&interval=1wk");
+    const r = await fetch(`/api/quotes?ticker=SPY&range=${range}&interval=1wk`);
     if (!r.ok) return null;
     const j = await r.json();
     if (!j.rows || j.rows.length < 100) return null;
+    _spyHistoryCache[range] = j.rows;
     return j.rows;
   } catch (_) {
     return null;
@@ -552,13 +564,40 @@ async function renderHistory(points, currentDate, currentScore) {
   document.getElementById("history-note").textContent =
     `${peakNote} · Historical scores: VIX, Fed rate, and sector leadership computed from real data (CBOE VIX, FRED, sector-ETF prices). Margin debt and earnings use proxies (SPY drawdown depth; growth-leadership during stress) since FINRA monthly history and historical EPS aren't freely backfillable. The live dashboard uses direct data for all five.`;
 
+  renderAlignmentTable(data);
+  _historyData = data;
+  wireHistoryRange();
+  await drawHistoryChart(_historyRange);
+}
+
+// Historical Alignment chart, redrawn when the 10Y / Since-2007 toggle changes.
+let _historyData = [];
+let _historyRange = "10y";
+let _historyChart = null;
+
+function wireHistoryRange() {
+  document.querySelectorAll("#history-range button").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      if (btn.dataset.range === _historyRange) return;
+      _historyRange = btn.dataset.range;
+      document.querySelectorAll("#history-range button").forEach(b =>
+        b.classList.toggle("active", b === btn));
+      await drawHistoryChart(_historyRange);
+    });
+  });
+}
+
+async function drawHistoryChart(range) {
+  const data = _historyData;
   const canvas = document.getElementById("history-chart");
+  if (_historyChart) { _historyChart.destroy(); _historyChart = null; }
 
   // Pull SPY backdrop. If unavailable (local dev, proxy down), fall back to
   // the simpler score-bars chart so the panel never goes empty.
-  const spyRows = await fetchSpyHistory();
+  const spyRows = await fetchSpyHistory(range);
   if (!spyRows) {
-    new Chart(canvas, {
+    document.getElementById("history-range")?.setAttribute("hidden", "");
+    _historyChart = new Chart(canvas, {
       type: "bar",
       data: {
         labels: data.map(p => p.date),
@@ -584,16 +623,18 @@ async function renderHistory(points, currentDate, currentScore) {
     return;
   }
 
-  // Filter SPY rows to start at the first alignment date so the x-axis spans
-  // the same window we have alignment data for.
+  // Window: from the first alignment date (minus a quarter of padding), or
+  // the start of the SPY series if that's later (10Y view).
   const firstAlignDate = new Date(`${data[0].date}-01`).getTime();
   const spyClipped = spyRows.filter(r => new Date(r.date).getTime() >= firstAlignDate - 1000 * 60 * 60 * 24 * 90);
-
   const spyData = spyClipped.map(r => ({ x: r.date, y: r.close }));
+  const windowStart = new Date(spyClipped[0].date).getTime() - 1000 * 60 * 60 * 24 * 31;
 
-  // Build scatter points: each alignment date placed on the SPY line at the
-  // closest weekly close.
+  // Place each alignment on the SPY line at the closest weekly close. Skip
+  // alignments that fall before the window — "nearest" would otherwise pile
+  // them all onto the first point of the chart.
   const markers = data.map(p => {
+    if (new Date(`${p.date}-01`).getTime() < windowStart) return null;
     const nearest = nearestSpyAtDate(spyClipped, p.date);
     if (!nearest) return null;
     return {
@@ -605,9 +646,7 @@ async function renderHistory(points, currentDate, currentScore) {
     };
   }).filter(Boolean);
 
-  renderAlignmentTable(data);
-
-  new Chart(canvas, {
+  _historyChart = new Chart(canvas, {
     data: {
       datasets: [
         {
@@ -990,31 +1029,49 @@ function renderMarginDetail(d, evalResult) {
       <div class="updated">As of ${latest.month}</div>
     </div>
     <div class="stat-row">
-      <div class="stat"><div class="stat-label">Latest</div><div class="stat-value">${d.unitsLabel}${latest.value.toFixed(0)}</div></div>
+      <div class="stat"><div class="stat-label">Latest</div><div class="stat-value">${formatBillions(latest.value)}</div></div>
       <div class="stat"><div class="stat-label">MoM</div><div class="stat-value">${momPct >= 0 ? "+" : ""}${momPct}%</div><div class="stat-sub">vs ${prior.month}</div></div>
       <div class="stat"><div class="stat-label">3-month</div><div class="stat-value">${m3Pct === "–" ? "–" : (m3Pct >= 0 ? "+" : "") + m3Pct + "%"}</div><div class="stat-sub">${threeAgo ? "vs " + threeAgo.month : "trend"}</div></div>
       <div class="stat"><div class="stat-label">YoY</div><div class="stat-value">${yoyPct === "–" ? "–" : (yoyPct >= 0 ? "+" : "") + yoyPct + "%"}</div></div>
-      <div class="stat"><div class="stat-label">From peak</div><div class="stat-value">${fromPeakPct >= 0 ? "+" : ""}${fromPeakPct}%</div><div class="stat-sub">peak: ${d.unitsLabel}${peak.value.toFixed(0)} (${peak.month})</div></div>
+      <div class="stat"><div class="stat-label">From peak</div><div class="stat-value">${fromPeakPct >= 0 ? "+" : ""}${fromPeakPct}%</div><div class="stat-sub">peak: ${formatBillions(peak.value)} (${peak.month})</div></div>
     </div>
     <div class="detail-section">
-      <h3>Margin debt — month-over-month direction</h3>
+      <h3>Month-over-month change</h3>
       <p class="chart-caption">
-        <span class="swatch" style="background:#2ea043"></span> decrease (de-leveraging — bullish for entry)
-        <span class="swatch" style="background:#384047; margin-left:14px"></span> flat or increase (leverage building)
+        <span class="swatch" style="background:#2ea043"></span> decrease (de-leveraging — meets trigger)
+        <span class="swatch" style="background:#6e7681; margin-left:14px"></span> increase (leverage building)
       </p>
       <div class="detail-chart"><canvas id="margin-chart"></canvas></div>
+    </div>
+    <div class="detail-section">
+      <h3>Margin debt level</h3>
+      <div class="detail-chart"><canvas id="margin-level-chart"></canvas></div>
     </div>
     <div class="rule-box">
       <strong>Rule:</strong> Trigger when margin debt is lower than the prior month (a rise under 1% shows as Watch). The 3-month and YoY figures show whether a dip is real de-leveraging or a pause in a rising trend. Falling margin balances signal forced de-leveraging — investors are being squeezed out, and that capitulation is historically a contrarian buy signal.
     </div>
   `;
-  drawBarChart("margin-chart", h.map(p => p.month), h.map(p => p.value), {
-    valueLabel: "Margin Debt",
-    valuePrefix: d.unitsLabel,
-    valueDecimals: 1,
-    highlightDrops: true,
-    showMoM: true,
-    tightYAxis: true
+  // Bars encode length, so they must start at zero: chart the MoM % change
+  // (the quantity the trigger actually reads) on a zero baseline, and show
+  // the level separately as a line, where a non-zero axis is fine.
+  const momRows = h.slice(1).map((p, i) => ({
+    month: p.month,
+    level: p.value,
+    pct: ((p.value - h[i].value) / h[i].value) * 100
+  }));
+  const signed = v => `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`;
+  drawBarChart("margin-chart", momRows.map(r => r.month), momRows.map(r => r.pct), {
+    valueLabel: "MoM change",
+    format: signed,
+    tickFormat: v => `${v > 0 ? "+" : ""}${v}%`,
+    colorFor: v => (v < 0 ? "#2ea043" : "#6e7681"),
+    hoverColorFor: v => (v < 0 ? "#3fbf57" : "#8b949e"),
+    beginAtZero: true,
+    afterLabel: i => `Level: ${formatBillions(momRows[i].level, 1)}`
+  });
+  drawLineChart("margin-level-chart", h.map(p => p.month), h.map(p => p.value), {
+    valueLabel: "Margin debt",
+    format: v => formatBillions(v)
   });
 }
 
@@ -1418,6 +1475,12 @@ function toMonthYear(label) {
   const p = parseDateLabel(label);
   return p ? `${p.m}/${p.y}` : String(label);
 }
+function toMonthYearLong(label) {
+  const p = parseDateLabel(label);
+  if (!p) return String(label);
+  const months = ["", "Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return `${months[parseInt(p.m)]} ${p.y}`;
+}
 function toFullDate(label) {
   const p = parseDateLabel(label);
   if (!p) return String(label);
@@ -1479,8 +1542,9 @@ function drawLineChart(canvasId, labels, values, opts = {}) {
           bodyFont: { family: "ui-monospace, SFMono-Regular, Menlo, monospace", size: 12 },
           filter: (item) => !item.dataset._isThreshold,
           callbacks: {
-            title: (items) => toFullDate(items[0].label),
-            label: (item) => `${item.dataset.label}: ${item.parsed.y.toFixed(valueDecimals)}${valueSuffix}`
+            title: (items) => opts.format ? toMonthYearLong(items[0].label) : toFullDate(items[0].label),
+            label: (item) => `${item.dataset.label}: ${
+              opts.format ? opts.format(item.parsed.y) : item.parsed.y.toFixed(valueDecimals) + valueSuffix}`
           }
         }
       },
@@ -1488,7 +1552,7 @@ function drawLineChart(canvasId, labels, values, opts = {}) {
         y: {
           ticks: {
             color: "#8b949e",
-            callback: (v) => `${v}${valueSuffix}`
+            callback: (v) => opts.format ? opts.format(v) : `${v}${valueSuffix}`
           },
           grid: { color: "rgba(139,148,158,0.12)" }
         },
@@ -1510,42 +1574,13 @@ function drawLineChart(canvasId, labels, values, opts = {}) {
 }
 
 function drawBarChart(canvasId, labels, values, opts = {}) {
-  const valueLabel    = opts.valueLabel ?? "Value";
-  const valueDecimals = opts.valueDecimals ?? 1;
-  const valuePrefix   = opts.valuePrefix ?? "";
-  const baseColor     = opts.color || "#58a6ff";
-  const dropColor     = opts.dropColor || "#2ea043";   // bright green for drops
-  const riseColor     = opts.riseColor || "#384047";   // muted slate for rises
-  const valuesSnapshot = [...values];
-
-  // Tight y-axis: start near min so small MoM changes are visible.
-  // Round to nearest "nice" tick.
-  let yMin, yMax;
-  if (opts.tightYAxis && values.length > 0) {
-    const dataMin = Math.min(...values);
-    const dataMax = Math.max(...values);
-    const range = dataMax - dataMin;
-    const pad = Math.max(range * 0.20, dataMax * 0.02);
-    const stepHint = Math.pow(10, Math.floor(Math.log10(Math.max(range, 1)))) / 2;
-    const niceFloor = Math.floor((dataMin - pad) / stepHint) * stepHint;
-    const niceCeil  = Math.ceil ((dataMax + pad) / stepHint) * stepHint;
-    yMin = Math.max(0, niceFloor);
-    yMax = niceCeil;
-  }
-
-  // Color logic: if highlightDrops enabled, color each bar based on MoM direction.
-  const backgroundColor = opts.highlightDrops
-    ? values.map((v, i) => {
-        if (i === 0) return riseColor;
-        return v < values[i - 1] ? dropColor : riseColor;
-      })
-    : baseColor;
-  const hoverBackgroundColor = opts.highlightDrops
-    ? values.map((v, i) => {
-        if (i === 0) return "#4a5562";
-        return v < values[i - 1] ? "#3fbf57" : "#4a5562";
-      })
-    : "#79b8ff";
+  // Bars always start at zero (bar length must encode the value).
+  // opts: valueLabel, format(v) -> string, colorFor(v), hoverColorFor(v),
+  //       afterLabel(index) -> extra tooltip line.
+  const valueLabel = opts.valueLabel ?? "Value";
+  const format     = opts.format || (v => v.toFixed(1));
+  const colorFor   = opts.colorFor || (() => "#58a6ff");
+  const hoverFor   = opts.hoverColorFor || colorFor;
 
   new Chart(document.getElementById(canvasId), {
     type: "bar",
@@ -1554,8 +1589,8 @@ function drawBarChart(canvasId, labels, values, opts = {}) {
       datasets: [{
         label: valueLabel,
         data: values,
-        backgroundColor,
-        hoverBackgroundColor,
+        backgroundColor: values.map(colorFor),
+        hoverBackgroundColor: values.map(hoverFor),
         borderRadius: 2
       }]
     },
@@ -1575,30 +1610,20 @@ function drawBarChart(canvasId, labels, values, opts = {}) {
           titleFont: { size: 12, weight: "600" },
           bodyFont: { family: "ui-monospace, SFMono-Regular, Menlo, monospace", size: 12 },
           callbacks: {
-            title: (items) => toMonthYear(items[0].label),
-            label: (item) => `${item.dataset.label}: ${valuePrefix}${item.parsed.y.toFixed(valueDecimals)}`,
-            afterLabel: (item) => {
-              if (!opts.showMoM) return undefined;
-              const i = item.dataIndex;
-              if (i === 0) return undefined;
-              const prev = valuesSnapshot[i - 1];
-              const v = item.parsed.y;
-              const pct = ((v - prev) / prev) * 100;
-              const arrow = v < prev ? "▼" : v > prev ? "▲" : "·";
-              return `MoM: ${arrow} ${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`;
-            }
+            title: (items) => toMonthYearLong(items[0].label),
+            label: (item) => `${item.dataset.label}: ${format(item.parsed.y)}`,
+            afterLabel: (item) => (opts.afterLabel ? opts.afterLabel(item.dataIndex) : undefined)
           }
         }
       },
       scales: {
         y: {
-          ...(yMin !== undefined ? { min: yMin } : {}),
-          ...(yMax !== undefined ? { max: yMax } : {}),
-          ticks: {
-            color: "#8b949e",
-            callback: (v) => `${valuePrefix}${v}`
-          },
-          grid: { color: "rgba(139,148,158,0.12)" }
+          beginAtZero: true,
+          ticks: { color: "#8b949e", callback: (v) => (opts.tickFormat || format)(v) },
+          grid: {
+            // Emphasise the zero line so increases vs decreases read at a glance.
+            color: (ctx) => (ctx.tick && ctx.tick.value === 0 ? "rgba(139,148,158,0.55)" : "rgba(139,148,158,0.12)")
+          }
         },
         x: {
           ticks: {
@@ -1623,6 +1648,13 @@ function drawBarChart(canvasId, labels, values, opts = {}) {
 function activateTab(name) {
   document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === name));
   document.querySelectorAll(".panel").forEach(p => p.classList.toggle("active", p.id === `panel-${name}`));
+  // On phones the tab bar scrolls sideways; keep the active tab in view.
+  const activeTab = document.querySelector(`.tab[data-tab="${name}"]`);
+  const bar = document.getElementById("tabs");
+  if (activeTab && bar && bar.scrollWidth > bar.clientWidth) {
+    const offset = activeTab.getBoundingClientRect().left - bar.getBoundingClientRect().left;
+    bar.scrollBy({ left: offset - (bar.clientWidth - activeTab.offsetWidth) / 2, behavior: "smooth" });
+  }
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
