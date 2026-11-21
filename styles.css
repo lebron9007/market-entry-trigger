@@ -421,6 +421,37 @@ table.data td, .rule-box, .footer, .theme-toggle, button {
 .verdict.score-3 { color: var(--yellow); }
 .verdict.score-low { color: var(--text-dim); }
 
+/* Daily score log strip (score panel) */
+.score-log { margin-top: 14px; }
+.score-log[hidden] { display: none; }
+.score-log-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin-bottom: 6px;
+}
+.score-log-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.score-log-meta { font-size: 12px; color: var(--text-dim); }
+.score-log-strip { display: flex; flex-wrap: wrap; gap: 3px; }
+.log-cell {
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  background: var(--c);
+  color: #0d1117;
+  font: 600 10px/18px var(--mono);
+  text-align: center;
+  cursor: default;
+}
+.log-cell.partial { opacity: 0.5; }
+
 /* Skeleton loading state — initial cards before JS hydrates */
 .card.skeleton {
   border-left-color: var(--border);
@@ -478,6 +509,14 @@ table.data td, .rule-box, .footer, .theme-toggle, button {
   color: var(--text-dim);
   line-height: 1.4;
 }
+/* Distance to the trigger line, e.g. "✓ 5.9 above the 30 trigger" */
+.card-gauge {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.card-gauge.met   { color: var(--green); }
+.card-gauge.unmet { color: var(--red); }
 .card-link {
   font-size: 11px;
   color: var(--accent);
@@ -1070,6 +1109,7 @@ table.fedwatch-table td.num { white-space: nowrap; }
     grid-template-columns: 1fr auto;
     grid-template-areas:
       "head  value"
+      "gauge gauge"
       "take  take"
       "fresh fresh";
     column-gap: 12px;
@@ -1078,6 +1118,7 @@ table.fedwatch-table td.num { white-space: nowrap; }
   }
   .card-head  { grid-area: head; justify-content: flex-start; gap: 8px; }
   .card-value { grid-area: value; font-size: 18px; justify-self: end; }
+  .card-gauge { grid-area: gauge; }
   .card-takeaway { grid-area: take; }
   .card-fresh { grid-area: fresh; }
   .card-link  { display: none; }

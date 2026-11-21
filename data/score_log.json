@@ -1,0 +1,48 @@
+{
+  "_comment": "Daily live score, written by scripts/snapshot.mjs via .github/workflows/daily-score.yml (weekdays after the US close). Uses the dashboard's own rules (core.js). partial = at least one source was unavailable that day (not used for alerts).",
+  "entries": [
+    {
+      "date": "2026-11-20",
+      "score": 4,
+      "partial": false,
+      "conditions": {
+        "vix": {
+          "status": "green",
+          "pass": true,
+          "value": "35.9",
+          "gauge": "5.9 above the 30 trigger",
+          "asOf": "2026-11-20"
+        },
+        "fed": {
+          "status": "red",
+          "pass": false,
+          "value": "Hike 90%",
+          "gauge": "Hike odds 90% — must stay under 50%",
+          "asOf": "2026-11-20"
+        },
+        "margin": {
+          "status": "green",
+          "pass": true,
+          "value": "$1,448B",
+          "gauge": "Down 2.1% — any decline meets it",
+          "asOf": "2026-10"
+        },
+        "sector": {
+          "status": "green",
+          "pass": true,
+          "value": "XLY",
+          "gauge": "2.9pp above the 3pp bar",
+          "asOf": "2026-11-20",
+          "leader": "XLY"
+        },
+        "earnings": {
+          "status": "green",
+          "pass": true,
+          "value": "70%",
+          "gauge": "7 beats, 6 needed (1 to spare)",
+          "asOf": "2026-10-31"
+        }
+      }
+    }
+  ]
+}

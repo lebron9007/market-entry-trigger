@@ -26,6 +26,29 @@ Pure static HTML/CSS/JS — runs on GitHub Pages, Netlify, or Vercel free tier.
 | FINRA margin | `/api/finra-margin` (live); `data/finra_margin.json` fallback, refreshed by a daily GitHub Action | Auto, monthly |
 | Earnings | Yahoo `earningsHistory` via `/api/earnings` (no key; MarketBeat fallback) | Auto, cached 7 days |
 
+## Code layout
+
+- `core.js` — the five condition rules and the helpers they use. Shared by
+  the dashboard (browser) and the daily snapshot (Node), so both score
+  identically. Change a rule here, not in `script.js`.
+- `script.js` — data fetching, rendering, charts.
+- `api/` — Vercel serverless functions (quotes, FedWatch, FRED, FINRA,
+  earnings, health).
+
+## Daily score log & alerts
+
+`.github/workflows/daily-score.yml` runs `scripts/snapshot.mjs` every
+weekday at 22:15 UTC (after the US close). It scores the live data with
+`core.js`, appends the day to `data/score_log.json` (shown as the "Daily log"
+strip on the dashboard), and, when the score differs from the previous
+complete day, raises an alert:
+
+- opens a GitHub issue in this repo (GitHub emails the repo owner), and
+- posts to Slack/Discord if an `ALERT_WEBHOOK` **repository secret** is set.
+
+Run it by hand from the Actions tab, or locally:
+`node scripts/snapshot.mjs --dry-run`.
+
 ## Local dev
 
 ```bash

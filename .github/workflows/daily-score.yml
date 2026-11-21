@@ -1,0 +1,52 @@
+# Logs the dashboard's live 5-condition score once per trading day to
+# data/score_log.json, and raises an alert when the score changes:
+#   * opens a GitHub issue in this repo (GitHub emails the repo owner), and
+#   * POSTs to the ALERT_WEBHOOK repo secret (Slack/Discord), if one is set.
+#
+# Scoring uses core.js — the same rules the dashboard runs in the browser.
+
+name: Daily score snapshot
+
+on:
+  schedule:
+    - cron: "15 22 * * 1-5"   # weekdays 22:15 UTC, after the US close (DST-safe)
+  workflow_dispatch: {}        # manual run from the Actions tab
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: daily-score
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Score today and update the log
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ALERT_WEBHOOK: ${{ secrets.ALERT_WEBHOOK }}
+        run: node scripts/snapshot.mjs
+
+      - name: Commit if changed
+        run: |
+          if git diff --quiet -- data/score_log.json; then
+            echo "No change."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/score_log.json
+          git commit -m "chore(data): daily score snapshot"
+          # Another scheduled job (FINRA) may have pushed meanwhile.
+          git pull --rebase origin main
+          git push
