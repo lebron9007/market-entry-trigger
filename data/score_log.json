@@ -215,6 +215,49 @@
           "asOf": "2026-10-31"
         }
       }
+    },
+    {
+      "date": "2026-11-27",
+      "score": 3,
+      "partial": false,
+      "conditions": {
+        "vix": {
+          "status": "yellow",
+          "pass": false,
+          "value": "23.8",
+          "gauge": "6.2 below the 30 trigger",
+          "asOf": "2026-11-27"
+        },
+        "fed": {
+          "status": "red",
+          "pass": false,
+          "value": "Hike 99%",
+          "gauge": "Hike odds 99% — must stay under 50%",
+          "asOf": "2026-11-27"
+        },
+        "margin": {
+          "status": "green",
+          "pass": true,
+          "value": "$1,448B",
+          "gauge": "Down 2.1% — any decline meets it",
+          "asOf": "2026-10"
+        },
+        "sector": {
+          "status": "green",
+          "pass": true,
+          "value": "XLY",
+          "gauge": "4.3pp above the 3pp bar",
+          "asOf": "2026-11-27",
+          "leader": "XLY"
+        },
+        "earnings": {
+          "status": "green",
+          "pass": true,
+          "value": "70%",
+          "gauge": "7 beats, 6 needed (1 to spare)",
+          "asOf": "2026-10-31"
+        }
+      }
     }
   ]
 }
